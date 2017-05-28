@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>blog burhanloey: Pertama Kali Menggunakan &#39;Closure&#39;</title>
+    <link rel="canonical" href="http://www.burhanloey.com/blog/posts/2015-10-18-pertama-kali-menggunakan-closure/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link href='http://fonts.googleapis.com/css?family=Alegreya:400italic,700italic,400,700' rel='stylesheet'
+          type='text/css'>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css">
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.7.0/styles/default.min.css">
+    <link href="/blog/css/screen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+
+<nav class="navbar navbar-default">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/blog/">blog burhanloey</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav navbar-right">
+                <li ><a href="/blog/">Home</a></li>
+                <li
+                ><a href="/blog/archives/">Archives</a></li>
+                
+                <li
+                >
+                <a href="/blog/about/">About</a>
+                </li>
+                
+                <li><a href="/blog/feed.xml">RSS</a></li>
+            </ul>
+        </div><!--/.nav-collapse -->
+    </div><!--/.container-fluid -->
+</nav>
+
+
+<div class="container">
+
+
+    <div class="row">
+        <div class="col-lg-9">
+            <div id="content">
+                
+<div id="post">
+    <div class="post-header">
+    <div id="post-meta" class="row">
+        <div class="col-lg-6">October 18, 2015</div>
+        
+    </div>
+    <h2>Pertama Kali Menggunakan &#39;Closure&#39;</h2>
+</div>
+<div>
+    
+     <p> Saya masih baru dalam web development dan functional programming. Semasa belajar functional programming dengan Scala, ada beberapa konsep dan teknik yang rasa-rasa macam faham, rasa-rasa macam tak, rasa-rasa tak pasti, antaranya lambda expression, map reduce, closure, dan monad.</p><p><img src="/blog/images/i-dont-get-it.png" alt="I don't get it" /></p><p>Semuanya terjawab sedikit demi sedikit apabila saya mula menggunakan JavaScript. Dalam tutorial Scala, kita terus menggunakan simbol-simbol seperti simbol lambda, jadi kita tak beberapa nak nampak apa yang berlaku under the hood semasa menggunakan simbol lambda. Berlainan dengan JavaScript, di mana kita perlu menulis anonymous function untuk membuat map reduce tanpa menggunakan simbol lambda. Lambda expression untuk JavaScript akan ada support dalam ECMAScript 6 nanti.</p><p>Berbalik pada tajuk asal, antara feature dalam functional programming ialah closure. Kalau tengok pada mana-mana tutorial, contoh yang mereka beri adalah untuk menunjukkan bagaimana return function boleh akses variable dalam function yang lain. Jadi, saya pun tertanya-tanya, "Apa yang special-nya?", saya boleh sahaja letak variable tersebut sebagai global dan akses dari mana-mana sahaja, betul tak? Pendapat saya itu kekal sehinggalah saya cuba membuat web development, barulah saya nampak betapa awesome-nya konsep closure ini.</p><p>Sebelum itu, saya nak tunjuk masalah apa yang saya nak selesaikan, iaitu sign up form. Jangan gelak, saya masih baru.</p><p>Sign up form yang saya nak buat simple sahaja. Ada tiga textfield untuk username, password, dan verify password. Untuk kedua-dua textfield password, saya nak display icon untuk menunjukkan sama ada input tersebut dibenarkan ataupun tidak sebaik sahaja user tulis sesuatu. Untuk textfield password, input yang saya benarkan hanyalah 6 character minimum. Untuk textfield verify password pula, input yang saya benarkan ialah input yang sama dengan password(obviously).</p><p>Saya menggunakan jQuery, jadi pada mulanya saya tulis code seperti ini:</p><pre><code class="javascript">// Check password length. Toggle icon accordingly. Password must be at least 
+// 6 characters. 
+function validatePassword&#40;&#41; {
+    if &#40;$&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+
+// Check if password verification is the same with password. Toggle icon
+// accordingly.
+function verifyPassword&#40;&#41; {
+    if &#40;$&#40;&quot;#verify-password-input&quot;&#41;.val&#40;&#41; === $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;&#41; {
+        $&#40;&quot;#verify-password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#verify-password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#verify-password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#verify-password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+
+// Show icon if the input is not null, and then validate.
+function showIconAndValidate&#40;&#41; {
+    if &#40;$&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt; 0&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.show&#40;0, validatePassword&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.hide&#40;0&#41;;
+    }
+}
+
+// Show icon if the input is not null, and then verify.
+function showIconAndVerify&#40;&#41; {
+    if &#40;$&#40;&quot;#verify-password-input&quot;&#41;.val&#40;&#41;.length &gt; 0&#41; {
+        $&#40;&quot;#verify-password-check&quot;&#41;.show&#40;0, verifyPassword&#41;;
+    } else {
+        $&#40;&quot;#verify-password-check&quot;&#41;.hide&#40;0&#41;;
+    }
+}
+
+// Set-up events.
+$&#40;&quot;#password-input&quot;&#41;.keyup&#40;showIconAndValidate&#41;;
+$&#40;&quot;#verify-password-input&quot;&#41;.keyup&#40;showIconAndVerify&#41;;
+</code></pre><p>Kalau sesiapa yang dah pro mungkin boleh nampak, ada bahagian yang tidak menggunakan konsep DRY(Don't-Repeat-Yourself). Sebelum membuat validation dan verification, saya check sama ada textfield ada input ataupun tidak. Kalau ada display, kalau tiada hide. Bahagian tersebut saya tulis dua kali, satu untuk textfield password, satu lagi untuk textfield verify password, jadi tak berapa bagus di situ.</p><p>Oleh itu, saya perlu membuat satu function untuk handle sama ada textfield ada input ataupun tidak. Tapi, tunggu dulu. Perhatikan selepas checking tersebut, saya ada membuat callback. Callback validatePassword() untuk password, callback verifyPassword() untuk verify password. Jadi, bagaimana kita nak asingkan callback tersebut? Ya, di sinilah saya menggunakan closure.</p><p>Code yang baru selepas refactor akan jadi seperti ini:</p><pre><code class="javascript">// Check password length. Toggle icon accordingly. Password must be at least 
+// 6 characters. 
+function validatePassword&#40;&#41; {
+    if &#40;$&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+
+// Check if password verification is the same with password. Toggle icon
+// accordingly.
+function verifyPassword&#40;&#41; {
+    if &#40;$&#40;&quot;#verify-password-input&quot;&#41;.val&#40;&#41; === $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;&#41; {
+        $&#40;&quot;#verify-password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#verify-password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#verify-password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#verify-password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+
+// Show icon if the input is not null.
+function showIcon&#40;callback&#41; {
+    return function&#40;&#41; {
+        var input = $&#40;this&#41;;
+        var icon = $&#40;this&#41;.parent&#40;&#41;.next&#40;&#41;;
+        
+        if &#40;input.val&#40;&#41;.length &gt; 0&#41; {
+            icon.show&#40;0, callback&#41;;
+        } else {
+            icon.hide&#40;0&#41;;
+        }
+    };
+}
+
+// Set-up events.
+$&#40;&quot;#password-input&quot;&#41;.keyup&#40;showIcon&#40;validatePassword&#41;&#41;;
+$&#40;&quot;#verify-password-input&quot;&#41;.keyup&#40;showIcon&#40;verifyPassword&#41;&#41;;
+</code></pre><p>Saya menggunakan JavaScript traversing, iaitu <code>$&#40;this&#41;.parent&#40;&#41;.next&#40;&#41;</code> untuk pilih icon. Ini tidak ada kena mengena dengan closure. Baca seterusnya untuk penjelasan mengenai closure.</p><p>Dalam jQuery, kita boleh passing function sebagai callback. Dalam JavaScript, jika kita letak kurungan selepas function, secara automatik kita akan invoke function tersebut. Dalam masalah saya ini, saya letak function sebagai parameter untuk callback. Jadi kalau saya tidak membuat closure, apabila saya pass function sebagai argument untuk function showIcon(), secara automatik saya invoke showIcon(), tetapi saya tak mahu begitu. Saya mahu jQuery yang invoke showIcon() bergantung kepada event yang saya tetapkan. Jadi, dengan menggunakan closure, saya boleh pass function showIcon() yang dah 'combined' dengan function yang lain.</p><p>Awesome kan?</p><p>P/S: Perhatikan function validatePassword() dan verifyPassword() ada bahagian yang berulang. Saya serahkan kepada pembaca untuk selesaikan masalah tersebut. :)</p>
+</div>
+
+<div id="post-tags">
+    <b>Tags: </b>
+    
+    <a href="/blog/tags/javascript/">javascript</a>
+    
+</div>
+
+
+    <div id="prev-next">
+        
+        <a href="/blog/posts/2015-10-19-pertama-kali-menggunakan-closure-sambungan/">&laquo; Pertama Kali Menggunakan &#39;Closure&#39; (sambungan...)</a>
+        
+        
+    </div>
+
+    
+
+
+</div>
+
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div id="sidebar">
+                
+                
+                <div id="recent">
+                    <h3>Recent Posts</h3>
+                    <ul>
+                        
+                        <li><a href="/blog/posts/2017-05-06-greenspun-tenth-rule/">Greenspun&#39;s Tenth Rule</a></li>
+                        
+                        <li><a href="/blog/posts/2017-02-18-concurrency-model-dalam-clojure/">Concurrency Model dalam Clojure</a></li>
+                        
+                        <li><a href="/blog/posts/2016-02-10-etika-web-scraping/">Etika Web Scraping</a></li>
+                        
+                    </ul>
+                </div>
+                
+                
+                <div id="tags">
+                    <h3>Tags</h3>
+                    <ul>
+                        
+                        <li><a href="/blog/tags/clojure/">clojure</a></li>
+                        
+                        <li><a href="/blog/tags/java/">java</a></li>
+                        
+                        <li><a href="/blog/tags/completablefuture/">completablefuture</a></li>
+                        
+                        <li><a href="/blog/tags/concurrency/">concurrency</a></li>
+                        
+                        <li><a href="/blog/tags/lisp/">lisp</a></li>
+                        
+                        <li><a href="/blog/tags/web-scraping/">web-scraping</a></li>
+                        
+                        <li><a href="/blog/tags/c++/">c++</a></li>
+                        
+                        <li><a href="/blog/tags/go/">go</a></li>
+                        
+                        <li><a href="/blog/tags/javascript/">javascript</a></li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <footer>Copyright &copy; 2017 Burhanuddin Baharuddin
+        <p style="text-align: center;">Powered by <a href="http://cryogenweb.org">Cryogen</a></p></footer>
+</div>
+<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+<script src="/blog/js/highlight.pack.js" type="text/javascript"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+ <link rel="stylesheet" type="text/css" href=nil>
+<script>
+window.klipse_settings = null;
+</script>
+<script src=nil></script> 
+
+</body>
+</html>

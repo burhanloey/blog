@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>blog burhanloey: Pertama Kali Menggunakan &#39;Closure&#39; (sambungan...)</title>
+    <link rel="canonical" href="http://www.burhanloey.com/blog/posts/2015-10-19-pertama-kali-menggunakan-closure-sambungan/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link href='http://fonts.googleapis.com/css?family=Alegreya:400italic,700italic,400,700' rel='stylesheet'
+          type='text/css'>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css">
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.7.0/styles/default.min.css">
+    <link href="/blog/css/screen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+
+<nav class="navbar navbar-default">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/blog/">blog burhanloey</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav navbar-right">
+                <li ><a href="/blog/">Home</a></li>
+                <li
+                ><a href="/blog/archives/">Archives</a></li>
+                
+                <li
+                >
+                <a href="/blog/about/">About</a>
+                </li>
+                
+                <li><a href="/blog/feed.xml">RSS</a></li>
+            </ul>
+        </div><!--/.nav-collapse -->
+    </div><!--/.container-fluid -->
+</nav>
+
+
+<div class="container">
+
+
+    <div class="row">
+        <div class="col-lg-9">
+            <div id="content">
+                
+<div id="post">
+    <div class="post-header">
+    <div id="post-meta" class="row">
+        <div class="col-lg-6">October 19, 2015</div>
+        
+    </div>
+    <h2>Pertama Kali Menggunakan &#39;Closure&#39; (sambungan...)</h2>
+</div>
+<div>
+    
+     <p> Sebelum ini saya ada tunjuk bagaimana kita boleh menggunakan closure untuk menggabungkan satu function dengan function yang lain. Di bahagian paling bawah post tersebut, saya ada meminta pembaca untuk selesaikan code yang masih ada bahagian berulang. Jika anda belum mencuba dan ingin mencuba boleh lihat di <a href='/blog/blog/2015/pertama-kali-menggunakan-closure.html'>post ini</a>. Jika tak mahu, boleh teruskan membaca untuk lihat cara saya menyelesaikannya.</p><p>Jadi, kenapa kena guna closure? Saje, supaya code nampak lebih elegant. Kalau boleh semua function saya nak guna closure.</p><p><img src="/blog/images/all-closures.png" alt="Write all the functions with closure!!!" /></p><p>Baiklah. Code sebelum ini masih ada bahagian yang berulang, iaitu:</p><pre><code class="javascript">// Check password length. Toggle icon accordingly. Password must be at least 
+// 6 characters. 
+function validatePassword&#40;&#41; {
+    if &#40;$&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+
+// Check if password verification is the same with password. Toggle icon
+// accordingly.
+function verifyPassword&#40;&#41; {
+    if &#40;$&#40;&quot;#verify-password-input&quot;&#41;.val&#40;&#41; === $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;&#41; {
+        $&#40;&quot;#verify-password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#verify-password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#verify-password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#verify-password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+</code></pre><p>Tetapi masalahnya condition untuk if else antara kedua-dua function tersebut adalah berlainan.</p><p>Dalam functional programming, semua benda kita boleh jadikan function, dan kita juga boleh passing function melalui parameter. Jadi, secara teorinya kita akan jadikan condition untuk if else tersebut sebagai function, kemudian kita akan hantar function tersebut melalui parameter untuk closure. Saya akan tunjukkan perlahan-lahan menggunakan salah satu function tersebut.</p><p>Function yang asal adalah seperti ini:</p><pre><code class="javascript">function validatePassword&#40;&#41; {
+    if &#40;$&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+</code></pre><p>Sekarang kita asingkan condition tersebut ke dalam satu variable:</p><pre><code class="javascript">function validatePassword&#40;&#41; {
+    var ok = $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6;
+
+    if &#40;ok&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+</code></pre><p>Dan untuk menjadikannya sebagai function, kita boleh menggunakan singleton yang akan self-invoke:</p><pre><code class="javascript">function validatePassword&#40;&#41; {
+    var ok = &#40;function&#40;&#41; { return $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6; }&#41;&#40;&#41;;
+
+    if &#40;ok&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+</code></pre><p>Akhirnya, kita sudah menjadikan condition tersebut sebagai sebuah function, dan kita boleh asingkan condition tersebut di luar, seperti berikut:</p><pre><code class="javascript">function&#40;&#41; {
+    return $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6;
+}
+
+function validatePassword&#40;condition&#41; {
+    var ok = condition&#40;&#41;;
+
+    if &#40;ok&#41; {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+    } else {
+        $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+    }
+}
+</code></pre><p>Masalah dengan cara ini ialah apabila kita hantar condition melalui parameter, kita akan invoke function validatePassword() secara automatik. Untuk tidak invoke function tersebut, kita boleh menggunakan closure:</p><pre><code class="javascript">function&#40;&#41; {
+    return $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6;
+}
+
+function validatePassword&#40;condition&#41; {
+    return function&#40;&#41; {
+        var ok = condition&#40;&#41;;
+        
+        if &#40;ok&#41; {
+            $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+            $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        } else {
+            $&#40;&quot;#password-check&quot;&#41;.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+            $&#40;&quot;#password-check&quot;&#41;.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        }
+    };
+}
+</code></pre><p>Sekarang untuk menyelesaikan masalah code yang berulang, kita boleh abstract-kan function menggunakan keyword <code>this</code>, seperti berikut:</p><pre><code class="javascript">function toggleIcon&#40;condition&#41; {
+    return function&#40;&#41; {
+        var ok = condition&#40;&#41;;
+        var icon = $&#40;this&#41;;
+        
+        if &#40;ok&#41; {
+            icon.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+            icon.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        } else {
+            icon.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+            icon.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        }
+    };
+}
+</code></pre><p>Kalau mahu lebih ringkas, boleh tulis seperti ini:</p><pre><code class="javascript">function toggleIcon&#40;ok&#41; {
+    return function&#40;&#41; {
+        var icon = $&#40;this&#41;;
+        
+        if &#40;ok&#40;&#41;&#41; {
+            icon.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+            icon.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        } else {
+            icon.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+            icon.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        }
+    };
+}
+</code></pre><p>Note: Icon boleh di-refer menggunakan <code>$&#40;this&#41;</code>, dan bukannya seperti sebelum ini di mana kita menggunakan <code>$&#40;this&#41;.parent&#40;&#41;.next&#40;&#41;</code> kerana function tersebut adalah callback kepada event untuk icon itu sendiri. Kalau nak tukar scope, boleh guna <code>bind&#40;&#41;</code>, tapi itu dah lari dari topik.</p><p>Sekarang kita sudah ada closure untuk handle toggle icon.</p><p>Selepas refactor, akhir sekali code kita akan jadi seperti ini:</p><pre><code class="javascript">// Condition that states that password input must be minimum of 6 characters.
+function validate&#40;&#41; {
+    return $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;.length &gt;= 6;
+}
+
+// Condition that states that password input must be the same as verify password
+// input.
+function verify&#40;&#41; {
+    return $&#40;&quot;#verify-password-input&quot;&#41;.val&#40;&#41; === $&#40;&quot;#password-input&quot;&#41;.val&#40;&#41;;
+}
+
+// Toggle icon according to condition. If true, shows ok. If false, shows cross.
+function toggleIcon&#40;ok&#41; {
+    return function&#40;&#41; {
+        var icon = $&#40;this&#41;;
+        
+        if &#40;ok&#40;&#41;&#41; {
+            icon.removeClass&#40;&quot;glyphicon-remove&quot;&#41;;
+            icon.addClass&#40;&quot;glyphicon-ok&quot;&#41;;
+        } else {
+            icon.removeClass&#40;&quot;glyphicon-ok&quot;&#41;;
+            icon.addClass&#40;&quot;glyphicon-remove&quot;&#41;;
+        }
+    };
+}
+
+// Show icon if the input is not null.
+function showIcon&#40;duration, callback&#41; {
+    return function&#40;&#41; {
+        var input = $&#40;this&#41;;
+        var icon = $&#40;this&#41;.parent&#40;&#41;.next&#40;&#41;;
+        
+        if &#40;input.val&#40;&#41;.length &gt; 0&#41; {
+            icon.show&#40;duration, callback&#41;;
+        } else {
+            icon.hide&#40;duration&#41;;
+        }
+    };
+}
+
+// Set-up events.
+$&#40;&quot;#password-input&quot;&#41;.keyup&#40;showIcon&#40;0, toggleIcon&#40;validate&#41;&#41;&#41;;
+$&#40;&quot;#verify-password-input&quot;&#41;.keyup&#40;showIcon&#40;0, toggleIcon&#40;verify&#41;&#41;&#41;;
+</code></pre><p>Bandingkan dengan code sebelum ini, yang mana lebih anda suka?</p><p>Kesimpulannya, closure is awesome. Seperti yang tertulis di Mozilla, kita boleh menggunakan closure sebagai 'function factory'. Anda boleh baca dengan lebih lanjut di contoh makeAdder di <a href='https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures#Closure'>sini</a>.</p>
+</div>
+
+<div id="post-tags">
+    <b>Tags: </b>
+    
+    <a href="/blog/tags/javascript/">javascript</a>
+    
+</div>
+
+
+    <div id="prev-next">
+        
+        <a href="/blog/posts/2015-10-22-misi-mencari-ide-untuk-go/">&laquo; Misi Mencari IDE Untuk Go</a>
+        
+        
+        <a class="right" href="/blog/posts/2015-10-18-pertama-kali-menggunakan-closure/">Pertama Kali Menggunakan &#39;Closure&#39; &raquo;</a>
+        
+    </div>
+
+    
+
+
+</div>
+
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div id="sidebar">
+                
+                
+                <div id="recent">
+                    <h3>Recent Posts</h3>
+                    <ul>
+                        
+                        <li><a href="/blog/posts/2017-05-06-greenspun-tenth-rule/">Greenspun&#39;s Tenth Rule</a></li>
+                        
+                        <li><a href="/blog/posts/2017-02-18-concurrency-model-dalam-clojure/">Concurrency Model dalam Clojure</a></li>
+                        
+                        <li><a href="/blog/posts/2016-02-10-etika-web-scraping/">Etika Web Scraping</a></li>
+                        
+                    </ul>
+                </div>
+                
+                
+                <div id="tags">
+                    <h3>Tags</h3>
+                    <ul>
+                        
+                        <li><a href="/blog/tags/clojure/">clojure</a></li>
+                        
+                        <li><a href="/blog/tags/java/">java</a></li>
+                        
+                        <li><a href="/blog/tags/completablefuture/">completablefuture</a></li>
+                        
+                        <li><a href="/blog/tags/concurrency/">concurrency</a></li>
+                        
+                        <li><a href="/blog/tags/lisp/">lisp</a></li>
+                        
+                        <li><a href="/blog/tags/web-scraping/">web-scraping</a></li>
+                        
+                        <li><a href="/blog/tags/c++/">c++</a></li>
+                        
+                        <li><a href="/blog/tags/go/">go</a></li>
+                        
+                        <li><a href="/blog/tags/javascript/">javascript</a></li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <footer>Copyright &copy; 2017 Burhanuddin Baharuddin
+        <p style="text-align: center;">Powered by <a href="http://cryogenweb.org">Cryogen</a></p></footer>
+</div>
+<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+<script src="/blog/js/highlight.pack.js" type="text/javascript"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+ <link rel="stylesheet" type="text/css" href=nil>
+<script>
+window.klipse_settings = null;
+</script>
+<script src=nil></script> 
+
+</body>
+</html>

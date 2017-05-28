@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>blog burhanloey: Greenspun&#39;s Tenth Rule</title>
+    <link rel="canonical" href="http://www.burhanloey.com/blog/posts/2017-05-06-greenspun-tenth-rule/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link href='http://fonts.googleapis.com/css?family=Alegreya:400italic,700italic,400,700' rel='stylesheet'
+          type='text/css'>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css">
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.7.0/styles/default.min.css">
+    <link href="/blog/css/screen.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+
+
+<nav class="navbar navbar-default">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/blog/">blog burhanloey</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav navbar-right">
+                <li ><a href="/blog/">Home</a></li>
+                <li
+                ><a href="/blog/archives/">Archives</a></li>
+                
+                <li
+                >
+                <a href="/blog/about/">About</a>
+                </li>
+                
+                <li><a href="/blog/feed.xml">RSS</a></li>
+            </ul>
+        </div><!--/.nav-collapse -->
+    </div><!--/.container-fluid -->
+</nav>
+
+
+<div class="container">
+
+
+    <div class="row">
+        <div class="col-lg-9">
+            <div id="content">
+                
+<div id="post">
+    <div class="post-header">
+    <div id="post-meta" class="row">
+        <div class="col-lg-6">May 6, 2017</div>
+        
+    </div>
+    <h2>Greenspun&#39;s Tenth Rule</h2>
+</div>
+<div>
+    
+     <p> Sebelum ini saya pernah menggunakan feature dari Java 8 untuk membuat <em>concurrency</em> iaitu dengan menggunakan interface <a href='https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html'>CompletableFuture</a>. Ada suatu ketika, interface tersebut bukannya memudahkan, tapi merumitkan lagi keadaan.</p><p>Masalah berpunca kerana Java 8 hanya menyediakan <a href='https://docs.oracle.com/javase/8/docs/api/java/util/function/BiFunction.html'>BiFunction</a> yang kita boleh gunakan untuk method <a href='https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html#thenCombine-java.util.concurrent.CompletionStage-java.util.function.BiFunction-'>thenCombine</a>. Maksudnya method tersebut hanya boleh menerima dua proses sahaja. Jika kita mahu lebih daripada dua, kita boleh menggunakan library <a href='https://github.com/vavr-io/vavr'>Javaslang/Vavr</a> dan menggunakan interface Function3, Function4, dan sebagainya tetapi itu topik yang lain.</p><p>Untuk menyelesaikan proses serentak yang lebih daripada dua, Java 8 ada menyediakan method <a href='https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html#allOf-java.util.concurrent.CompletableFuture...-'>allOf</a>. Namun, method tersebut pun ada karenahnya sendiri.</p><p>Yang pertama, parameter untuk <strong>allOf</strong> ialah <em>variadic</em>. Maksudnya method tersebut boleh menerima tak kira berapa banyak argument yang kita mahu letak, ataupun hanya letak array. Oops, tunggu dulu, kita tidak boleh meletakkan array untuk <strong>allOf</strong> sebab CompletableFuture ialah <em>generic interface</em>. Dalam Java kita tidak boleh membuat array untuk generic. Error tersebut dipanggil <em>generic array creation error</em>.</p><p>Yang kedua, method <strong>allOf</strong> akan return CompletableFuture dengan data type <em>Void</em>. Ya, <em>VOID</em>. Memang ramai yang complain pasal ini.</p><p>Jadi, untuk menggunakan <strong>allOf</strong> kita perlu menghantar argument satu per satu, kemudian untuk mendapatkan <em>result</em> kita ambik balik daripada Future masing-masing menggunakan <a href='https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html#join&ndash;'>join</a>. Sesiapa yang dah boleh agak, ya, code tersebut memang akan jadi sangatlah buruk.</p><p>Sekarang kita patah balik ke programming language Clojure. Di post yang sama sebelum ini, saya juga ada perkenalkan library Clojure yang menggunakan CompletableFuture dari Java 8, iaitu library <a href='https://github.com/funcool/promesa'>promesa</a>. Saya pun intai-intai macam mana library tersebut mengendalikan masalah ini.</p><p>Seperti yang saya jangkakan, <a href='http://funcool.github.io/promesa/latest/#working-with-collections'>sangat simple, sangat mudah</a>. Ya rabbi, kedua-dua isu yang saya senaraikan di atas terus hilang.</p><p>Secara jujurnya saya memang tepuk dahi sewaktu membaca documentation tersebut.</p><p>Akhir kata, jika nak dikaitkan dengan tajuk artikel ini, saya masih setuju dengan pendapat <a href='https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule'>Greenspun's tenth rule</a> yang menyatakan:</p><pre><code>Any sufficiently complicated C or Fortran program contains an ad-hoc,
+informally-specified, bug-ridden, slow implementation of half of Common Lisp.
+</code></pre><p>Cuma ganti C dengan Java, dan Common Lisp dengan Clojure sebab mereka adik-beradik.</p>
+</div>
+
+<div id="post-tags">
+    <b>Tags: </b>
+    
+    <a href="/blog/tags/clojure/">clojure</a>
+    
+    <a href="/blog/tags/java/">java</a>
+    
+    <a href="/blog/tags/completablefuture/">completablefuture</a>
+    
+    <a href="/blog/tags/concurrency/">concurrency</a>
+    
+    <a href="/blog/tags/lisp/">lisp</a>
+    
+</div>
+
+
+    <div id="prev-next">
+        
+        
+        <a class="right" href="/blog/posts/2017-02-18-concurrency-model-dalam-clojure/">Concurrency Model dalam Clojure &raquo;</a>
+        
+    </div>
+
+    
+
+
+</div>
+
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div id="sidebar">
+                
+                
+                <div id="recent">
+                    <h3>Recent Posts</h3>
+                    <ul>
+                        
+                        <li><a href="/blog/posts/2017-05-06-greenspun-tenth-rule/">Greenspun&#39;s Tenth Rule</a></li>
+                        
+                        <li><a href="/blog/posts/2017-02-18-concurrency-model-dalam-clojure/">Concurrency Model dalam Clojure</a></li>
+                        
+                        <li><a href="/blog/posts/2016-02-10-etika-web-scraping/">Etika Web Scraping</a></li>
+                        
+                    </ul>
+                </div>
+                
+                
+                <div id="tags">
+                    <h3>Tags</h3>
+                    <ul>
+                        
+                        <li><a href="/blog/tags/clojure/">clojure</a></li>
+                        
+                        <li><a href="/blog/tags/java/">java</a></li>
+                        
+                        <li><a href="/blog/tags/completablefuture/">completablefuture</a></li>
+                        
+                        <li><a href="/blog/tags/concurrency/">concurrency</a></li>
+                        
+                        <li><a href="/blog/tags/lisp/">lisp</a></li>
+                        
+                        <li><a href="/blog/tags/web-scraping/">web-scraping</a></li>
+                        
+                        <li><a href="/blog/tags/c++/">c++</a></li>
+                        
+                        <li><a href="/blog/tags/go/">go</a></li>
+                        
+                        <li><a href="/blog/tags/javascript/">javascript</a></li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <footer>Copyright &copy; 2017 Burhanuddin Baharuddin
+        <p style="text-align: center;">Powered by <a href="http://cryogenweb.org">Cryogen</a></p></footer>
+</div>
+<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+<script src="/blog/js/highlight.pack.js" type="text/javascript"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+ <link rel="stylesheet" type="text/css" href=nil>
+<script>
+window.klipse_settings = null;
+</script>
+<script src=nil></script> 
+
+</body>
+</html>
