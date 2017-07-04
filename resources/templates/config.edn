@@ -1,7 +1,7 @@
 {:site-title           "blog burhanloey"
  :author               "Burhanuddin Baharuddin"
  :description          "burhanloey's blog"
- :site-url             "http://www.burhanloey.com/"
+ :site-url             "https://www.burhanloey.com/"
  :post-root            "posts"
  :page-root            "pages"
  ;; :post-root-uri        "posts-output"
@@ -17,7 +17,7 @@
  :sass-src             []
  :sass-path            "sass"
  :compass-path         "compass"
- :theme                "blue"
+ :theme                "burhanloey_blog"
  :resources            ["images"]
  :keep-files           [".git"]
  :disqus?              false
