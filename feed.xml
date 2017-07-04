@@ -1,28 +1,28 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <rss version='2.0' xmlns:atom='http://www.w3.org/2005/Atom'>
 <channel>
-<atom:link href='http://www.burhanloey.com/' rel='self' type='application/rss+xml'/>
+<atom:link href='https://www.burhanloey.com/' rel='self' type='application/rss+xml'/>
 <title>
 blog burhanloey
 </title>
 <link>
-http://www.burhanloey.com/
+https://www.burhanloey.com/
 </link>
 <description>
 burhanloey's blog
 </description>
 <lastBuildDate>
-Sun, 28 May 2017 20:07:52 +0800
+Tue, 04 Jul 2017 13:49:32 +0800
 </lastBuildDate>
 <generator>
 clj-rss
 </generator>
 <item>
 <guid>
-http://www.burhanloey.com/blog/posts/2017-05-06-greenspun-tenth-rule/
+https://www.burhanloey.com/blog/posts/2017-05-06-greenspun-tenth-rule/
 </guid>
 <link>
-http://www.burhanloey.com/blog/posts/2017-05-06-greenspun-tenth-rule/
+https://www.burhanloey.com/blog/posts/2017-05-06-greenspun-tenth-rule/
 </link>
 <title>
 Greenspun's Tenth Rule
@@ -41,10 +41,10 @@ Sat, 06 May 2017 00:00:00 +0800
 </item>
 <item>
 <guid>
-http://www.burhanloey.com/blog/posts/2017-02-18-concurrency-model-dalam-clojure/
+https://www.burhanloey.com/blog/posts/2017-02-18-concurrency-model-dalam-clojure/
 </guid>
 <link>
-http://www.burhanloey.com/blog/posts/2017-02-18-concurrency-model-dalam-clojure/
+https://www.burhanloey.com/blog/posts/2017-02-18-concurrency-model-dalam-clojure/
 </link>
 <title>
 Concurrency Model dalam Clojure
@@ -61,10 +61,10 @@ Sat, 18 Feb 2017 00:00:00 +0800
 </item>
 <item>
 <guid>
-http://www.burhanloey.com/blog/posts/2016-02-10-etika-web-scraping/
+https://www.burhanloey.com/blog/posts/2016-02-10-etika-web-scraping/
 </guid>
 <link>
-http://www.burhanloey.com/blog/posts/2016-02-10-etika-web-scraping/
+https://www.burhanloey.com/blog/posts/2016-02-10-etika-web-scraping/
 </link>
 <title>
 Etika Web Scraping
@@ -81,10 +81,10 @@ Wed, 10 Feb 2016 00:00:00 +0800
 </item>
 <item>
 <guid>
-http://www.burhanloey.com/blog/posts/2015-10-22-misi-mencari-ide-untuk-go/
+https://www.burhanloey.com/blog/posts/2015-10-22-misi-mencari-ide-untuk-go/
 </guid>
 <link>
-http://www.burhanloey.com/blog/posts/2015-10-22-misi-mencari-ide-untuk-go/
+https://www.burhanloey.com/blog/posts/2015-10-22-misi-mencari-ide-untuk-go/
 </link>
 <title>
 Misi Mencari IDE Untuk Go
@@ -104,10 +104,10 @@ Thu, 22 Oct 2015 00:00:00 +0800
 </item>
 <item>
 <guid>
-http://www.burhanloey.com/blog/posts/2015-10-19-pertama-kali-menggunakan-closure-sambungan/
+https://www.burhanloey.com/blog/posts/2015-10-19-pertama-kali-menggunakan-closure-sambungan/
 </guid>
 <link>
-http://www.burhanloey.com/blog/posts/2015-10-19-pertama-kali-menggunakan-closure-sambungan/
+https://www.burhanloey.com/blog/posts/2015-10-19-pertama-kali-menggunakan-closure-sambungan/
 </link>
 <title>
 Pertama Kali Menggunakan 'Closure' (sambungan...)
@@ -280,10 +280,10 @@ Mon, 19 Oct 2015 00:00:00 +0800
 </item>
 <item>
 <guid>
-http://www.burhanloey.com/blog/posts/2015-10-18-pertama-kali-menggunakan-closure/
+https://www.burhanloey.com/blog/posts/2015-10-18-pertama-kali-menggunakan-closure/
 </guid>
 <link>
-http://www.burhanloey.com/blog/posts/2015-10-18-pertama-kali-menggunakan-closure/
+https://www.burhanloey.com/blog/posts/2015-10-18-pertama-kali-menggunakan-closure/
 </link>
 <title>
 Pertama Kali Menggunakan 'Closure'
