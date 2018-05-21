@@ -157,3 +157,81 @@ boleh panggil `<!` di luar block `go`. Kalau boleh, bolehlah saya letak bahagian
 tersebut sebagai xform.
 
 Jadi, tengoklah dulu.
+
+Edit: Ini code selepas saya guna
+[eduction](https://clojuredocs.org/clojure.core/eduction). Taktahu lah sama ada
+ini dikira best practice. Function `register` jadi lagi pendek kira ok lah tu.
+
+```clojure
+(def user-existed-msg "Username/email sudah diambil. Sila daftar menggunakan username/email yang lain.")
+(def success-msg "Anda sudah berjaya mendaftar. Sila log masuk .")
+
+(defn- make-flash-msg [[errors data]]
+  (if errors
+    [{:errors errors :data data} data]
+    [nil data]))
+
+(def validate-xform
+  (comp
+   (map v/validate-registration)
+   (map make-flash-msg)))
+
+(defn- validate [form]
+  (let [validated (chan 1 validate-xform)]
+    (put! validated form)
+    validated))
+
+(defn- find-existing-user [validated]
+  (go (let [[errors user :as all] (<! validated)
+            already-existed (chan)]
+        (if errors
+          (put! already-existed false)
+          (let [by-username (async/thread (find-user-by-username (:username user)))
+                by-email (async/thread (find-user-by-email (:email user)))]
+            (put! already-existed (boolean (or (<! by-username) (<! by-email))))))
+        (conj all already-existed))))
+
+(defn- check-existing-user [user-check]
+  (go (let [[errors user already-existed :as all] (<! user-check)]
+        (cond
+          errors all
+          (<! already-existed) [{:message user-existed-msg} user]
+          :else all))))          
+
+(defn- hash-user-password [new-user]
+  (go (let [[errors user :as all] (<! new-user)]
+        (if errors
+          all
+          [errors (async/thread (update user :password hashers/derive))]))))
+
+(defn- persist-user [new-user]
+  (go (let [[errors hashed-user :as all] (<! new-user)]
+        (if errors
+          all
+          (do
+            (println "Registered: " (<! hashed-user))
+            all)))))
+
+(defn- make-response [registered]
+  (go (let [[errors _] (<! registered)]
+        (if errors
+          (-> (redirect "/daftar")
+              (flash errors))
+          (-> (redirect "/login")
+              (flash success-msg))))))
+
+(def register-xform
+  (comp
+   (map validate)
+   (map find-existing-user)
+   (map check-existing-user)
+   (map hash-user-password)
+   (map persist-user)
+   (map make-response)))
+
+(defn register [{:keys [params]} respond _]
+  (let [form (select-keys params [:username :email :password])
+        [response] (eduction register-xform [form])]
+    (go (let [[res _] (alts! [response (timeout 10000)])]
+          (respond res)))))
+```
