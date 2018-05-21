@@ -12,11 +12,110 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Sat, 08 Jul 2017 22:08:04 +0800
+Mon, 21 May 2018 09:23:51 +0800
 </lastBuildDate>
 <generator>
 clj-rss
 </generator>
+<item>
+<guid>
+https://www.burhanloey.com/blog/posts/2018-05-21-refactor-core-async-menggunakan-transducer/
+</guid>
+<link>
+https://www.burhanloey.com/blog/posts/2018-05-21-refactor-core-async-menggunakan-transducer/
+</link>
+<title>
+Refactor code core.async menggunakan Transducer
+</title>
+<description>
+ &lt;p&gt;Dulu saya hanya menulis code Clojure secara &lt;em&gt;synchronous&lt;/em&gt;, dan hanya pindahkan code ke &lt;em&gt;thread&lt;/em&gt; lain bila perlu. Baru-baru ini saya jenguk-jenguk code untuk &lt;a href='https://github.com/ring-clojure/ring'&gt;Ring&lt;/a&gt;, dan saya mula perasan setiap &lt;em&gt;middleware&lt;/em&gt; mengambil dua jenis function, satu function 1-&lt;em&gt;arity&lt;/em&gt; yang biasa, satu lagi function 3-&lt;em&gt;arity&lt;/em&gt;. Saya pun tertanya-tanya apa guna function 3-&lt;em&gt;arity&lt;/em&gt; ni.&lt;/p&gt;&lt;p&gt;Lepas check, rupa-rupanya function 3-&lt;em&gt;arity&lt;/em&gt; itu adalah untuk &lt;em&gt;async handler&lt;/em&gt;. Server Clojure yang lain memang dah boleh handle &lt;em&gt;async request&lt;/em&gt;, contohnya &lt;a href='https://github.com/ztellman/aleph'&gt;Aleph&lt;/a&gt; dan &lt;a href='https://github.com/http-kit/http-kit'&gt;http-kit&lt;/a&gt;, tapi saya tak suka guna sebab tak ikut standard Ring. Server default untuk Ring ialah Jetty. Versi Jetty yang latest dah ikut spec Servlet 3.1, jadi dah boleh handle &lt;em&gt;async request&lt;/em&gt;.&lt;/p&gt;&lt;p&gt;Jadi, untuk enable function 3-&lt;em&gt;arity&lt;/em&gt;, kalau menggunakan &lt;a href='https://github.com/weavejester/lein-ring'&gt;lein-ring&lt;/a&gt;, cuma perlu set option &lt;code&gt;:async?&lt;/code&gt; ke &lt;code&gt;true&lt;/code&gt;. Kemudian tukar handler dari,&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;defn hello-handler &amp;#91;req&amp;#93;
+  {:status 200
+   :headers {}
+   :body &amp;quot;Hello&amp;quot;}&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;ke&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;defn hello-handler &amp;#91;req respond raise&amp;#93;
+  &amp;#40;respond {:status 200
+            :headers {}
+            :body &amp;quot;Hello&amp;quot;}&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Maksudnya kalau kita panggil function &lt;code&gt;respond&lt;/code&gt; dari mana-mana thread pun, dia akan terus bagi response. Tak perlu guna blocking call dah.&lt;/p&gt;&lt;p&gt;Maka saya pun cubalah menulis handler menggunakan &lt;a href='https://github.com/clojure/core.async'&gt;core.async&lt;/a&gt;. Konsep &lt;code&gt;core.async&lt;/code&gt; sama sahaja dengan konsep concurrency dalam programming language Go.&lt;/p&gt;&lt;p&gt;Ini cubaan pertama:&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;defn register &amp;#91;{:keys &amp;#91;params&amp;#93;} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;form &amp;#40;select-keys params &amp;#91;:username :email :password&amp;#93;&amp;#41;
+        validated &amp;#40;chan&amp;#41;
+        user &amp;#40;chan&amp;#41;
+        new-user &amp;#40;chan&amp;#41;
+        hashed &amp;#40;chan&amp;#41;
+        result &amp;#40;chan&amp;#41;&amp;#93;
+    &amp;#40;go &amp;#40;&amp;gt;! validated &amp;#40;v/validate-registration form&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors data&amp;#93; &amp;#40;&amp;lt;! validated&amp;#41;&amp;#93;
+          &amp;#40;if errors
+            &amp;#40;&amp;gt;! result &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                           &amp;#40;flash {:errors errors
+                                   :data data}&amp;#41;&amp;#41;&amp;#41; ; assoc previous data
+            &amp;#40;&amp;gt;! user data&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;let &amp;#91;u           &amp;#40;&amp;lt;! user&amp;#41;
+              by-username &amp;#40;async/thread &amp;#40;find-user-by-username &amp;#40;:username u&amp;#41;&amp;#41;&amp;#41;
+              by-email    &amp;#40;async/thread &amp;#40;find-user-by-email &amp;#40;:email u&amp;#41;&amp;#41;&amp;#41;&amp;#93;
+          &amp;#40;if &amp;#40;or &amp;#40;&amp;lt;! by-username&amp;#41; &amp;#40;&amp;lt;! by-email&amp;#41;&amp;#41;
+            &amp;#40;&amp;gt;! result &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                           &amp;#40;flash {:message &amp;quot;Username/email sudah diambil. Sila daftar menggunakan username/email yang lain.&amp;quot;}&amp;#41;&amp;#41;&amp;#41;
+            &amp;#40;&amp;gt;! new-user u&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;&amp;gt;! hashed &amp;#40;update &amp;#40;&amp;lt;! new-user&amp;#41; :password hashers/derive&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;&amp;lt;! hashed&amp;#41;
+        &amp;#40;&amp;gt;! result &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+                       &amp;#40;flash &amp;quot;Anda sudah berjaya mendaftar. Sila log masuk .&amp;quot;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;res &amp;#95;&amp;#93; &amp;#40;alts! &amp;#91;result &amp;#40;timeout 10000&amp;#41;&amp;#93;&amp;#41;&amp;#93;
+          &amp;#40;respond res&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Ambik kau. Buruk nak mampus. Jalan memang jalan code-nya, logic semua ok, tapi dah takde rupa functional programming.&lt;/p&gt;&lt;p&gt;Jadi, saya tengok balik &lt;a href='https://clojuredocs.org/clojure.core.async/chan'&gt;documentation&lt;/a&gt; untuk &lt;code&gt;chan&lt;/code&gt;, saya perasan ada parameter &lt;code&gt;xform&lt;/code&gt;. Eh?!&lt;/p&gt;&lt;p&gt;Saya tahu guna core.async, saya tahu guna transducer, tapi saya baru tahu boleh guna core.async dengan transducer sama-sama.&lt;/p&gt;&lt;p&gt;Selepas refactor, code jadi begini:&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;def user-existed-msg &amp;quot;Username/email sudah diambil. Sila daftar menggunakan username/email yang lain.&amp;quot;&amp;#41;
+&amp;#40;def success-msg &amp;quot;Anda sudah berjaya mendaftar. Sila log masuk .&amp;quot;&amp;#41;
+
+&amp;#40;defn- make-flash-msg &amp;#91;&amp;#91;errors data&amp;#93;&amp;#93;
+  &amp;#40;if errors
+    &amp;#91;{:errors errors :data data} data&amp;#93;
+    &amp;#91;nil data&amp;#93;&amp;#41;&amp;#41;
+
+&amp;#40;defn- hash-user-password &amp;#91;&amp;#91;errors user :as all&amp;#93;&amp;#93;
+  &amp;#40;if errors
+    all
+    &amp;#91;errors &amp;#40;update user :password hashers/derive&amp;#41;&amp;#93;&amp;#41;&amp;#41;
+
+&amp;#40;defn- make-response &amp;#91;&amp;#91;errors &amp;#95;&amp;#93;&amp;#93;
+  &amp;#40;if errors
+    &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+        &amp;#40;flash errors&amp;#41;&amp;#41;
+    &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+        &amp;#40;flash success-msg&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;def validate-xform
+  &amp;#40;comp
+   &amp;#40;map v/validate-registration&amp;#41;
+   &amp;#40;map make-flash-msg&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;def register-xform
+  &amp;#40;comp
+   &amp;#40;map hash-user-password&amp;#41;
+   ;; TODO: Add one more function here in the middle to persist user
+   &amp;#40;map make-response&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn register &amp;#91;{:keys &amp;#91;params&amp;#93;} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;validated &amp;#40;chan 1 validate-xform&amp;#41;
+        result &amp;#40;chan 1 register-xform&amp;#41;&amp;#93;
+    &amp;#40;go &amp;#40;&amp;gt;! validated &amp;#40;select-keys params &amp;#91;:username :email :password&amp;#93;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors user :as all&amp;#93; &amp;#40;&amp;lt;! validated&amp;#41;&amp;#93;
+          &amp;#40;cond
+            ;; If already has errors, skip checking for existing user.
+            errors &amp;#40;&amp;gt;! result all&amp;#41;
+            ;; Check for existing user with same username or email.
+            &amp;#40;or &amp;#40;&amp;lt;! &amp;#40;async/thread &amp;#40;find-user-by-username &amp;#40;:username user&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+                &amp;#40;&amp;lt;! &amp;#40;async/thread &amp;#40;find-user-by-email &amp;#40;:email user&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+            &amp;#40;&amp;gt;! result &amp;#91;{:message user-existed-msg} user&amp;#93;&amp;#41;
+            ;; Return same data if there is no problem.
+            :else &amp;#40;&amp;gt;! result all&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;res &amp;#95;&amp;#93; &amp;#40;alts! &amp;#91;result &amp;#40;timeout 10000&amp;#41;&amp;#93;&amp;#41;&amp;#93;
+          &amp;#40;respond res&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Sekarang barulah pendek-pendek function tersebut.&lt;/p&gt;&lt;p&gt;Beza dengan yang asal ialah yang asal saya terus bagi result sebaik sahaja ada error. Orang panggil &lt;em&gt;short circuit&lt;/em&gt;. Masalah dengan cara tersebut ialah cara tersebut merupakan &lt;em&gt;side-effect&lt;/em&gt;. &lt;em&gt;Side-effect&lt;/em&gt; sangat tidak digalakkan dalam functional programming.&lt;/p&gt;&lt;p&gt;Jadi, saya tukar kepada menggunakan konsep monad. Saya jadikan function-function untuk &lt;code&gt;xform&lt;/code&gt; supaya return sebuah vector di mana item pertama ialah error dan item kedua ialah data sebenar yang perlu return. Error tersebut akan diselesaikan di pengakhiran iaitu dalam function &lt;code&gt;make-response&lt;/code&gt;.&lt;/p&gt;&lt;p&gt;Gambar ini mungkin lebih jelas:&lt;/p&gt;&lt;p&gt;&lt;img src=&quot;/blog/images/monad.png&quot; alt=&quot;Gambar menunjukkan konsep monad&quot; /&gt;&lt;/p&gt;&lt;p&gt;Masalah yang tinggal sekarang ialah panggilan ke &lt;code&gt;async/thread&lt;/code&gt; untuk &lt;code&gt;find-user-by-username&lt;/code&gt; dan &lt;code&gt;find-user-by-email&lt;/code&gt;. Masalahnya sebab saya tidak boleh panggil &lt;code&gt;&amp;lt;!&lt;/code&gt; di luar block &lt;code&gt;go&lt;/code&gt;. Kalau boleh, bolehlah saya letak bahagian tersebut sebagai xform.&lt;/p&gt;&lt;p&gt;Jadi, tengoklah dulu.&lt;/p&gt;
+</description>
+<pubDate>
+Mon, 21 May 2018 00:00:00 +0800
+</pubDate>
+</item>
 <item>
 <guid>
 https://www.burhanloey.com/blog/posts/2017-05-06-greenspun-tenth-rule/
@@ -32,9 +131,6 @@ Greenspun's Tenth Rule
 informally-specified, bug-ridden, slow implementation of half of Common Lisp.
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Cuma ganti C dengan Java, dan Common Lisp dengan Clojure sebab mereka adik-beradik.&lt;/p&gt;
 </description>
-<enclosure>
-
-</enclosure>
 <pubDate>
 Sat, 06 May 2017 00:00:00 +0800
 </pubDate>
@@ -52,9 +148,6 @@ Concurrency Model dalam Clojure
 <description>
  &lt;p&gt; Selepas beberapa minggu menulis &lt;em&gt;fully asynchronous code&lt;/em&gt; dalam Java 8, terdetik hati untuk menulis &lt;em&gt;asynchronous code&lt;/em&gt; dalam programming language kegemaran saya iaitu Clojure.&lt;/p&gt;&lt;p&gt;Setelah menggodek internet, saya mendapati Clojure ada beberapa model untuk membuat &lt;em&gt;concurrency&lt;/em&gt;, antaranya:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;future/promise&lt;/li&gt;&lt;li&gt;coroutine (menggunakan library &lt;a href='https://github.com/clojure/core.async'&gt;core.async&lt;/a&gt;)&lt;/li&gt;&lt;li&gt;actor model (menggunakan library &lt;a href='https://github.com/puniverse/pulsar'&gt;pulsar&lt;/a&gt;/quasar)&lt;/li&gt;&lt;li&gt;&lt;a href='https://github.com/funcool/promesa'&gt;promesa&lt;/a&gt; (library untuk menggunakan CompletableFuture Java 8)&lt;/li&gt;&lt;li&gt;parallel workers (interop dengan Java)&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;strong&gt;Future/promise&lt;/strong&gt; sememangnya sudah ada secara &lt;em&gt;native&lt;/em&gt; dalam Clojure. Saya memang suka model yang ini terutamanya apabila Clojure menggunakan &lt;em&gt;immutable data&lt;/em&gt; secara &lt;em&gt;default&lt;/em&gt; jadi saya tidak perlu bimbang dengan &lt;em&gt;race condition&lt;/em&gt;. &lt;strong&gt;Atoms&lt;/strong&gt;, &lt;strong&gt;agents&lt;/strong&gt;, dan &lt;strong&gt;refs&lt;/strong&gt; boleh digunakan untuk menguruskan &lt;em&gt;state&lt;/em&gt;, jadi saya tidak perlu menggunakan &lt;em&gt;lock&lt;/em&gt; seperti Java 7.&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Coroutine&lt;/strong&gt; adalah model yang sama digunakan dalam programming language Go. Model ini menghantar proses melalui &lt;em&gt;channel&lt;/em&gt;.&lt;/p&gt;&lt;p&gt;&lt;strong&gt;Actor model&lt;/strong&gt; pula digunakan dalam programming language seperti Scala dan Erlang. Saya tidak tahu sangat tentang actor model.&lt;/p&gt;&lt;p&gt;Library &lt;strong&gt;promesa&lt;/strong&gt; membolehkan programmer Clojure menulis code seperti Java 8, tetapi saya cuba elakkan kerana perlu menggunakan library luar.&lt;/p&gt;&lt;p&gt;Untuk &lt;strong&gt;parallel workers&lt;/strong&gt;, nasihat saya cuba elakkan.&lt;/p&gt;&lt;p&gt;Setelah melihat beberapa pilihan ini, saya menyangkakan pilihan cuma bergantung kepada programmer sahaja, ikut mana yang diminati. Namun, saya ada terbaca di stackoverflow yang menyatakan untuk memilih concurrency model perlulah mengikut situasi. Cuma saya masih belum nampak lagi.&lt;/p&gt;
 </description>
-<enclosure>
-
-</enclosure>
 <pubDate>
 Sat, 18 Feb 2017 00:00:00 +0800
 </pubDate>
@@ -72,9 +165,6 @@ Etika Web Scraping
 <description>
  &lt;p&gt; Baru-baru ini saya ada praktis concurrency dengan membuat web scraping menggunakan C++11. Sebelum ini saya takut untuk programming menggunakan C++ sebab terpaksa membuat memory management secara manual. Selepas membaca segala best practice untuk C++, barulah nampak yang C++11/C++14 boleh tahan elegant-nya. Yang nampak kurang sedap bila ada orang mengaku pandai C++ tapi programming macam C.&lt;/p&gt;&lt;p&gt;Berbalik ke cerita web scraping, C++ memang elegant, sehinggalah kena guna library C. Kalau tak jumpa wrapper C++ untuk library tersebut, mulut memang akan sumpah seranah waktu programming. Saya menggunakan library 'libcurl' untuk mendapatkan HTML daripada website, 'libxml2' untuk parse code HTML, dan library Boost untuk membuat concurrency.&lt;/p&gt;&lt;p&gt;'libcurl' dan 'libxml2' memang sudah ada wrapper C++, tetapi untuk educational purpose, saya cuba untuk wrap sendiri library tersebut menggunakan kaedah Resource Acquisition Is Initialization (RAII). Kaedah RAII memang selalu digunakan dalam C++ untuk memudahkan memory management.&lt;/p&gt;&lt;p&gt;Semasa cubaan awal, segalanya berjalan lancar. Boleh dapatkan code HTML daripada website, dan boleh parse HTML untuk dapatkan data yang diingini. Cabaran bermula apabila saya mula membuat concurrency. Apabila run sahaja, terus dapat segfault (segmentation fault). Kalau yang dah biasa, memang akan tahu yang segfault mesti punca daripada masalah memory.&lt;/p&gt;&lt;p&gt;Jadi, macam-macamlah yang saya ubahsuai code untuk menyelesaikan masalah. Tukar daripada kaedah menggunakan thread seperti biasa, kepada menggunakan future/promise, dan akhir sekali kepada menggunakan barrier. Selepas meletakkan barrier, saya perasan ada data yang saya dapat fetch sampai satu tahap barulah akan segfault seperti biasa.&lt;/p&gt;&lt;p&gt;Kemudian saya pun tengoklah macam mana rupa code HTML yang saya fetch tersebut. Barulah perasan yang saya dah kena block daripada website tersebut. Seperti semua sedia maklum, program C++ sememangnya laju. Jadi web scraping dengan concurrency akan jadi amat laju dan berpotensi membuatkan pemilik website tersebut berasa bimbang, lantas akan menghalang kita daripada mengakses website mereka.&lt;/p&gt;&lt;p&gt;Kesimpulannya, moral of the story untuk kisah ini ialah kita mestilah beretika semasa membuat web scraping. Seboleh-bolehnya jangan memaksa sangat website tersebut untuk handle request daripada program kita. Tak perlu laju-laju sangat pun takpe, janji dapat data yang dihajati. Kalau nak lagi elok, minta izin daripada pemilik website tersebut untuk membuat web scraping, lagi bagus.&lt;/p&gt;
 </description>
-<enclosure>
-
-</enclosure>
 <pubDate>
 Wed, 10 Feb 2016 00:00:00 +0800
 </pubDate>
@@ -95,9 +185,6 @@ Misi Mencari IDE Untuk Go
 mklink /J $GOPATH/src/appengine&amp;#95;internal c:\go&amp;#95;appengine\goroot\src\appengine&amp;#95;internal
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;a href='https://technet.microsoft.com/en-us/library/cc753194.aspx'&gt;mklink&lt;/a&gt; ialah command dalam Windows untuk membuat symlink. Kalau anda menggunakan operating system yang lain akan berbeza.&lt;/p&gt;&lt;p&gt;Walaupun semua steps di atas agak leceh, saya tetap berpuas hati.&lt;/p&gt;&lt;p&gt;Alternatif kepada semua cara di atas adalah dengan menggunakan package &lt;code&gt;appengine&lt;/code&gt; yang baru iaitu &lt;code&gt;google.golang.org/appengine&lt;/code&gt;. Tetapi dengan menggunakan package tersebut, saya tidak dapat code auto-completion jika menggunakan package yang berada di dalamnya seperti &lt;code&gt;google.golang.org/appengine/user&lt;/code&gt; dan &lt;code&gt;google.golang.org/appengine/log&lt;/code&gt;.&lt;/p&gt;
 </description>
-<enclosure>
-
-</enclosure>
 <pubDate>
 Thu, 22 Oct 2015 00:00:00 +0800
 </pubDate>
@@ -271,9 +358,6 @@ $&amp;#40;&amp;quot;#password-input&amp;quot;&amp;#41;.keyup&amp;#40;showIcon&am
 $&amp;#40;&amp;quot;#verify-password-input&amp;quot;&amp;#41;.keyup&amp;#40;showIcon&amp;#40;0, toggleIcon&amp;#40;verify&amp;#41;&amp;#41;&amp;#41;;
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Bandingkan dengan code sebelum ini, yang mana lebih anda suka?&lt;/p&gt;&lt;p&gt;Kesimpulannya, closure is awesome. Seperti yang tertulis di Mozilla, kita boleh menggunakan closure sebagai 'function factory'. Anda boleh baca dengan lebih lanjut di contoh makeAdder di &lt;a href='https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures#Closure'&gt;sini&lt;/a&gt;.&lt;/p&gt;
 </description>
-<enclosure>
-
-</enclosure>
 <pubDate>
 Mon, 19 Oct 2015 00:00:00 +0800
 </pubDate>
@@ -377,9 +461,6 @@ $&amp;#40;&amp;quot;#password-input&amp;quot;&amp;#41;.keyup&amp;#40;showIcon&am
 $&amp;#40;&amp;quot;#verify-password-input&amp;quot;&amp;#41;.keyup&amp;#40;showIcon&amp;#40;verifyPassword&amp;#41;&amp;#41;;
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Saya menggunakan JavaScript traversing, iaitu &lt;code&gt;$&amp;#40;this&amp;#41;.parent&amp;#40;&amp;#41;.next&amp;#40;&amp;#41;&lt;/code&gt; untuk pilih icon. Ini tidak ada kena mengena dengan closure. Baca seterusnya untuk penjelasan mengenai closure.&lt;/p&gt;&lt;p&gt;Dalam jQuery, kita boleh passing function sebagai callback. Dalam JavaScript, jika kita letak kurungan selepas function, secara automatik kita akan invoke function tersebut. Dalam masalah saya ini, saya letak function sebagai parameter untuk callback. Jadi kalau saya tidak membuat closure, apabila saya pass function sebagai argument untuk function showIcon(), secara automatik saya invoke showIcon(), tetapi saya tak mahu begitu. Saya mahu jQuery yang invoke showIcon() bergantung kepada event yang saya tetapkan. Jadi, dengan menggunakan closure, saya boleh pass function showIcon() yang dah 'combined' dengan function yang lain.&lt;/p&gt;&lt;p&gt;Awesome kan?&lt;/p&gt;&lt;p&gt;P/S: Perhatikan function validatePassword() dan verifyPassword() ada bahagian yang berulang. Saya serahkan kepada pembaca untuk selesaikan masalah tersebut. :)&lt;/p&gt;
 </description>
-<enclosure>
-
-</enclosure>
 <pubDate>
 Sun, 18 Oct 2015 00:00:00 +0800
 </pubDate>
