@@ -142,7 +142,78 @@
             :else &#40;&gt;! result all&#41;&#41;&#41;&#41;
     &#40;go &#40;let &#91;&#91;res &#95;&#93; &#40;alts! &#91;result &#40;timeout 10000&#41;&#93;&#41;&#93;
           &#40;respond res&#41;&#41;&#41;&#41;&#41;
-</code></pre><p>Sekarang barulah pendek-pendek function tersebut.</p><p>Beza dengan yang asal ialah yang asal saya terus bagi result sebaik sahaja ada error. Orang panggil <em>short circuit</em>. Masalah dengan cara tersebut ialah cara tersebut merupakan <em>side-effect</em>. <em>Side-effect</em> sangat tidak digalakkan dalam functional programming.</p><p>Jadi, saya tukar kepada menggunakan konsep monad. Saya jadikan function-function untuk <code>xform</code> supaya return sebuah vector di mana item pertama ialah error dan item kedua ialah data sebenar yang perlu return. Error tersebut akan diselesaikan di pengakhiran iaitu dalam function <code>make-response</code>.</p><p>Gambar ini mungkin lebih jelas:</p><p><img src="/blog/images/monad.png" alt="Gambar menunjukkan konsep monad" /></p><p>Masalah yang tinggal sekarang ialah panggilan ke <code>async/thread</code> untuk <code>find-user-by-username</code> dan <code>find-user-by-email</code>. Masalahnya sebab saya tidak boleh panggil <code>&lt;!</code> di luar block <code>go</code>. Kalau boleh, bolehlah saya letak bahagian tersebut sebagai xform.</p><p>Jadi, tengoklah dulu.</p>
+</code></pre><p>Sekarang barulah pendek-pendek function tersebut.</p><p>Beza dengan yang asal ialah yang asal saya terus bagi result sebaik sahaja ada error. Orang panggil <em>short circuit</em>. Masalah dengan cara tersebut ialah cara tersebut merupakan <em>side-effect</em>. <em>Side-effect</em> sangat tidak digalakkan dalam functional programming.</p><p>Jadi, saya tukar kepada menggunakan konsep monad. Saya jadikan function-function untuk <code>xform</code> supaya return sebuah vector di mana item pertama ialah error dan item kedua ialah data sebenar yang perlu return. Error tersebut akan diselesaikan di pengakhiran iaitu dalam function <code>make-response</code>.</p><p>Gambar ini mungkin lebih jelas:</p><p><img src="/blog/images/monad.png" alt="Gambar menunjukkan konsep monad" /></p><p>Masalah yang tinggal sekarang ialah panggilan ke <code>async/thread</code> untuk <code>find-user-by-username</code> dan <code>find-user-by-email</code>. Masalahnya sebab saya tidak boleh panggil <code>&lt;!</code> di luar block <code>go</code>. Kalau boleh, bolehlah saya letak bahagian tersebut sebagai xform.</p><p>Jadi, tengoklah dulu.</p><p>Edit: Ini code selepas saya guna <a href='https://clojuredocs.org/clojure.core/eduction'>eduction</a>. Taktahu lah sama ada ini dikira best practice. Function <code>register</code> jadi lagi pendek kira ok lah tu.</p><pre><code class="clojure">&#40;def user-existed-msg &quot;Username/email sudah diambil. Sila daftar menggunakan username/email yang lain.&quot;&#41;
+&#40;def success-msg &quot;Anda sudah berjaya mendaftar. Sila log masuk .&quot;&#41;
+
+&#40;defn- make-flash-msg &#91;&#91;errors data&#93;&#93;
+  &#40;if errors
+    &#91;{:errors errors :data data} data&#93;
+    &#91;nil data&#93;&#41;&#41;
+
+&#40;def validate-xform
+  &#40;comp
+   &#40;map v/validate-registration&#41;
+   &#40;map make-flash-msg&#41;&#41;&#41;
+
+&#40;defn- validate &#91;form&#93;
+  &#40;let &#91;validated &#40;chan 1 validate-xform&#41;&#93;
+    &#40;put! validated form&#41;
+    validated&#41;&#41;
+
+&#40;defn- find-existing-user &#91;validated&#93;
+  &#40;go &#40;let &#91;&#91;errors user :as all&#93; &#40;&lt;! validated&#41;
+            already-existed &#40;chan&#41;&#93;
+        &#40;if errors
+          &#40;put! already-existed false&#41;
+          &#40;let &#91;by-username &#40;async/thread &#40;find-user-by-username &#40;:username user&#41;&#41;&#41;
+                by-email &#40;async/thread &#40;find-user-by-email &#40;:email user&#41;&#41;&#41;&#93;
+            &#40;put! already-existed &#40;boolean &#40;or &#40;&lt;! by-username&#41; &#40;&lt;! by-email&#41;&#41;&#41;&#41;&#41;&#41;
+        &#40;conj all already-existed&#41;&#41;&#41;&#41;
+
+&#40;defn- check-existing-user &#91;user-check&#93;
+  &#40;go &#40;let &#91;&#91;errors user already-existed :as all&#93; &#40;&lt;! user-check&#41;&#93;
+        &#40;cond
+          errors all
+          &#40;&lt;! already-existed&#41; &#91;{:message user-existed-msg} user&#93;
+          :else all&#41;&#41;&#41;&#41;          
+
+&#40;defn- hash-user-password &#91;new-user&#93;
+  &#40;go &#40;let &#91;&#91;errors user :as all&#93; &#40;&lt;! new-user&#41;&#93;
+        &#40;if errors
+          all
+          &#91;errors &#40;async/thread &#40;update user :password hashers/derive&#41;&#41;&#93;&#41;&#41;&#41;&#41;
+
+&#40;defn- persist-user &#91;new-user&#93;
+  &#40;go &#40;let &#91;&#91;errors hashed-user :as all&#93; &#40;&lt;! new-user&#41;&#93;
+        &#40;if errors
+          all
+          &#40;do
+            &#40;println &quot;Registered: &quot; &#40;&lt;! hashed-user&#41;&#41;
+            all&#41;&#41;&#41;&#41;&#41;
+
+&#40;defn- make-response &#91;registered&#93;
+  &#40;go &#40;let &#91;&#91;errors &#95;&#93; &#40;&lt;! registered&#41;&#93;
+        &#40;if errors
+          &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
+              &#40;flash errors&#41;&#41;
+          &#40;-&gt; &#40;redirect &quot;/login&quot;&#41;
+              &#40;flash success-msg&#41;&#41;&#41;&#41;&#41;&#41;
+
+&#40;def register-xform
+  &#40;comp
+   &#40;map validate&#41;
+   &#40;map find-existing-user&#41;
+   &#40;map check-existing-user&#41;
+   &#40;map hash-user-password&#41;
+   &#40;map persist-user&#41;
+   &#40;map make-response&#41;&#41;&#41;
+
+&#40;defn register &#91;{:keys &#91;params&#93;} respond &#95;&#93;
+  &#40;let &#91;form &#40;select-keys params &#91;:username :email :password&#93;&#41;
+        &#91;response&#93; &#40;eduction register-xform &#91;form&#93;&#41;&#93;
+    &#40;go &#40;let &#91;&#91;res &#95;&#93; &#40;alts! &#91;response &#40;timeout 10000&#41;&#93;&#41;&#93;
+          &#40;respond res&#41;&#41;&#41;&#41;&#41;
+</code></pre>
 </div>
 
 <div id="post-tags">

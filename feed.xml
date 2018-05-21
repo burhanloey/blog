@@ -12,7 +12,7 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Mon, 21 May 2018 09:23:51 +0800
+Mon, 21 May 2018 19:21:29 +0800
 </lastBuildDate>
 <generator>
 clj-rss
@@ -110,7 +110,78 @@ Refactor code core.async menggunakan Transducer
             :else &amp;#40;&amp;gt;! result all&amp;#41;&amp;#41;&amp;#41;&amp;#41;
     &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;res &amp;#95;&amp;#93; &amp;#40;alts! &amp;#91;result &amp;#40;timeout 10000&amp;#41;&amp;#93;&amp;#41;&amp;#93;
           &amp;#40;respond res&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
-&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Sekarang barulah pendek-pendek function tersebut.&lt;/p&gt;&lt;p&gt;Beza dengan yang asal ialah yang asal saya terus bagi result sebaik sahaja ada error. Orang panggil &lt;em&gt;short circuit&lt;/em&gt;. Masalah dengan cara tersebut ialah cara tersebut merupakan &lt;em&gt;side-effect&lt;/em&gt;. &lt;em&gt;Side-effect&lt;/em&gt; sangat tidak digalakkan dalam functional programming.&lt;/p&gt;&lt;p&gt;Jadi, saya tukar kepada menggunakan konsep monad. Saya jadikan function-function untuk &lt;code&gt;xform&lt;/code&gt; supaya return sebuah vector di mana item pertama ialah error dan item kedua ialah data sebenar yang perlu return. Error tersebut akan diselesaikan di pengakhiran iaitu dalam function &lt;code&gt;make-response&lt;/code&gt;.&lt;/p&gt;&lt;p&gt;Gambar ini mungkin lebih jelas:&lt;/p&gt;&lt;p&gt;&lt;img src=&quot;/blog/images/monad.png&quot; alt=&quot;Gambar menunjukkan konsep monad&quot; /&gt;&lt;/p&gt;&lt;p&gt;Masalah yang tinggal sekarang ialah panggilan ke &lt;code&gt;async/thread&lt;/code&gt; untuk &lt;code&gt;find-user-by-username&lt;/code&gt; dan &lt;code&gt;find-user-by-email&lt;/code&gt;. Masalahnya sebab saya tidak boleh panggil &lt;code&gt;&amp;lt;!&lt;/code&gt; di luar block &lt;code&gt;go&lt;/code&gt;. Kalau boleh, bolehlah saya letak bahagian tersebut sebagai xform.&lt;/p&gt;&lt;p&gt;Jadi, tengoklah dulu.&lt;/p&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Sekarang barulah pendek-pendek function tersebut.&lt;/p&gt;&lt;p&gt;Beza dengan yang asal ialah yang asal saya terus bagi result sebaik sahaja ada error. Orang panggil &lt;em&gt;short circuit&lt;/em&gt;. Masalah dengan cara tersebut ialah cara tersebut merupakan &lt;em&gt;side-effect&lt;/em&gt;. &lt;em&gt;Side-effect&lt;/em&gt; sangat tidak digalakkan dalam functional programming.&lt;/p&gt;&lt;p&gt;Jadi, saya tukar kepada menggunakan konsep monad. Saya jadikan function-function untuk &lt;code&gt;xform&lt;/code&gt; supaya return sebuah vector di mana item pertama ialah error dan item kedua ialah data sebenar yang perlu return. Error tersebut akan diselesaikan di pengakhiran iaitu dalam function &lt;code&gt;make-response&lt;/code&gt;.&lt;/p&gt;&lt;p&gt;Gambar ini mungkin lebih jelas:&lt;/p&gt;&lt;p&gt;&lt;img src=&quot;/blog/images/monad.png&quot; alt=&quot;Gambar menunjukkan konsep monad&quot; /&gt;&lt;/p&gt;&lt;p&gt;Masalah yang tinggal sekarang ialah panggilan ke &lt;code&gt;async/thread&lt;/code&gt; untuk &lt;code&gt;find-user-by-username&lt;/code&gt; dan &lt;code&gt;find-user-by-email&lt;/code&gt;. Masalahnya sebab saya tidak boleh panggil &lt;code&gt;&amp;lt;!&lt;/code&gt; di luar block &lt;code&gt;go&lt;/code&gt;. Kalau boleh, bolehlah saya letak bahagian tersebut sebagai xform.&lt;/p&gt;&lt;p&gt;Jadi, tengoklah dulu.&lt;/p&gt;&lt;p&gt;Edit: Ini code selepas saya guna &lt;a href='https://clojuredocs.org/clojure.core/eduction'&gt;eduction&lt;/a&gt;. Taktahu lah sama ada ini dikira best practice. Function &lt;code&gt;register&lt;/code&gt; jadi lagi pendek kira ok lah tu.&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;def user-existed-msg &amp;quot;Username/email sudah diambil. Sila daftar menggunakan username/email yang lain.&amp;quot;&amp;#41;
+&amp;#40;def success-msg &amp;quot;Anda sudah berjaya mendaftar. Sila log masuk .&amp;quot;&amp;#41;
+
+&amp;#40;defn- make-flash-msg &amp;#91;&amp;#91;errors data&amp;#93;&amp;#93;
+  &amp;#40;if errors
+    &amp;#91;{:errors errors :data data} data&amp;#93;
+    &amp;#91;nil data&amp;#93;&amp;#41;&amp;#41;
+
+&amp;#40;def validate-xform
+  &amp;#40;comp
+   &amp;#40;map v/validate-registration&amp;#41;
+   &amp;#40;map make-flash-msg&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- validate &amp;#91;form&amp;#93;
+  &amp;#40;let &amp;#91;validated &amp;#40;chan 1 validate-xform&amp;#41;&amp;#93;
+    &amp;#40;put! validated form&amp;#41;
+    validated&amp;#41;&amp;#41;
+
+&amp;#40;defn- find-existing-user &amp;#91;validated&amp;#93;
+  &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors user :as all&amp;#93; &amp;#40;&amp;lt;! validated&amp;#41;
+            already-existed &amp;#40;chan&amp;#41;&amp;#93;
+        &amp;#40;if errors
+          &amp;#40;put! already-existed false&amp;#41;
+          &amp;#40;let &amp;#91;by-username &amp;#40;async/thread &amp;#40;find-user-by-username &amp;#40;:username user&amp;#41;&amp;#41;&amp;#41;
+                by-email &amp;#40;async/thread &amp;#40;find-user-by-email &amp;#40;:email user&amp;#41;&amp;#41;&amp;#41;&amp;#93;
+            &amp;#40;put! already-existed &amp;#40;boolean &amp;#40;or &amp;#40;&amp;lt;! by-username&amp;#41; &amp;#40;&amp;lt;! by-email&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+        &amp;#40;conj all already-existed&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- check-existing-user &amp;#91;user-check&amp;#93;
+  &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors user already-existed :as all&amp;#93; &amp;#40;&amp;lt;! user-check&amp;#41;&amp;#93;
+        &amp;#40;cond
+          errors all
+          &amp;#40;&amp;lt;! already-existed&amp;#41; &amp;#91;{:message user-existed-msg} user&amp;#93;
+          :else all&amp;#41;&amp;#41;&amp;#41;&amp;#41;          
+
+&amp;#40;defn- hash-user-password &amp;#91;new-user&amp;#93;
+  &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors user :as all&amp;#93; &amp;#40;&amp;lt;! new-user&amp;#41;&amp;#93;
+        &amp;#40;if errors
+          all
+          &amp;#91;errors &amp;#40;async/thread &amp;#40;update user :password hashers/derive&amp;#41;&amp;#41;&amp;#93;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- persist-user &amp;#91;new-user&amp;#93;
+  &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors hashed-user :as all&amp;#93; &amp;#40;&amp;lt;! new-user&amp;#41;&amp;#93;
+        &amp;#40;if errors
+          all
+          &amp;#40;do
+            &amp;#40;println &amp;quot;Registered: &amp;quot; &amp;#40;&amp;lt;! hashed-user&amp;#41;&amp;#41;
+            all&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- make-response &amp;#91;registered&amp;#93;
+  &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;errors &amp;#95;&amp;#93; &amp;#40;&amp;lt;! registered&amp;#41;&amp;#93;
+        &amp;#40;if errors
+          &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+              &amp;#40;flash errors&amp;#41;&amp;#41;
+          &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+              &amp;#40;flash success-msg&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;def register-xform
+  &amp;#40;comp
+   &amp;#40;map validate&amp;#41;
+   &amp;#40;map find-existing-user&amp;#41;
+   &amp;#40;map check-existing-user&amp;#41;
+   &amp;#40;map hash-user-password&amp;#41;
+   &amp;#40;map persist-user&amp;#41;
+   &amp;#40;map make-response&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn register &amp;#91;{:keys &amp;#91;params&amp;#93;} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;form &amp;#40;select-keys params &amp;#91;:username :email :password&amp;#93;&amp;#41;
+        &amp;#91;response&amp;#93; &amp;#40;eduction register-xform &amp;#91;form&amp;#93;&amp;#41;&amp;#93;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;res &amp;#95;&amp;#93; &amp;#40;alts! &amp;#91;response &amp;#40;timeout 10000&amp;#41;&amp;#93;&amp;#41;&amp;#93;
+          &amp;#40;respond res&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;
 </description>
 <pubDate>
 Mon, 21 May 2018 00:00:00 +0800
