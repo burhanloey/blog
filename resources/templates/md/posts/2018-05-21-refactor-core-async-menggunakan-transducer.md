@@ -80,7 +80,7 @@ Jadi, saya tengok balik
 [documentation](https://clojuredocs.org/clojure.core.async/chan) untuk `chan`,
 saya perasan ada parameter `xform`. Eh?!
 
-Saya tahu guna core.async, saya tahu guna transducer, tapi saya baru tahu boleh
+Saya tahu guna core.async, saya tahu guna transducer, tapi tak tahu pulak boleh
 guna core.async dengan transducer sama-sama.
 
 Selepas refactor, code jadi begini:
@@ -158,9 +158,9 @@ tersebut sebagai xform.
 
 Jadi, tengoklah dulu.
 
-Edit: Ini code selepas saya guna
+**Edit**: Ini code selepas saya guna
 [eduction](https://clojuredocs.org/clojure.core/eduction). Taktahu lah sama ada
-ini dikira best practice. Function `register` jadi lagi pendek kira ok lah tu.
+ini dikira best practice. Function `register` jadi lagi pendek, kira ok lah tu.
 
 ```clojure
 (def user-existed-msg "Username/email sudah diambil. Sila daftar menggunakan username/email yang lain.")
@@ -235,3 +235,6 @@ ini dikira best practice. Function `register` jadi lagi pendek kira ok lah tu.
     (go (let [[res _] (alts! [response (timeout 10000)])]
           (respond res)))))
 ```
+
+**Edit 2**: Saya cuba *load testing* server kemudian membuat request untuk
+handler tersebut. Server selamba je bagi response. Menarik.
