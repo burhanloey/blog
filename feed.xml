@@ -12,11 +12,281 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Tue, 22 May 2018 00:21:06 +0800
+Wed, 23 May 2018 22:33:57 +0800
 </lastBuildDate>
 <generator>
 clj-rss
 </generator>
+<item>
+<guid>
+https://www.burhanloey.com/blog/posts/2018-05-23-pembetulan-post-lepas-mengenai-core-async/
+</guid>
+<link>
+https://www.burhanloey.com/blog/posts/2018-05-23-pembetulan-post-lepas-mengenai-core-async/
+</link>
+<title>
+Pembetulan post lepas mengenai core.async
+</title>
+<description>
+&lt;p&gt;Post yang lepas ada kesilapan yang sangat kritikal. Cara penggunaan transducer dengan core.async tidak salah. Yang salahnya ialah saya create semua &lt;code&gt;chan&lt;/code&gt; yang untuk process untuk setiap request. Maksudnya tak ada beza sama ada saya tulis secara synchronous ataupun asynchronous.&lt;/p&gt;&lt;blockquote&gt;&lt;p&gt; Load testing yang menunjukkan server Java mampu untuk handle request walaupun  banyak silap yang saya buat menunjukkan betapa hebatnya Java Virtual Machine. &lt;/p&gt;&lt;/blockquote&gt;&lt;p&gt;Semalam saya tengok &lt;a href='http://www.youtube.com/watch?v=enwIIGzhahw'&gt;talk&lt;/a&gt; dari Timothy Baldridge mengenai core.async. Yang membuatkan saya sedar yang saya silap apabila beliau bercakap mengenai &lt;a href='https://clojuredocs.org/clojure.core.async/mult'&gt;mult&lt;/a&gt;. Function &lt;code&gt;mult&lt;/code&gt; itulah yang saya tercari-cari.&lt;/p&gt;&lt;p&gt;Satu lagi yang saya terlepas pandang ialah &lt;a href='https://clojuredocs.org/clojure.core.async/go-loop'&gt;go-loop&lt;/a&gt;. Clojure menyediakan &lt;code&gt;go-loop&lt;/code&gt; hanya untuk membuatkan loop di dalam block go. Maksudnya cara tersebut selalu diguna pakai sehingga mereka memerlukan macro untuk proses tersebut. Saya selalu dengar mengenai &lt;code&gt;event loop&lt;/code&gt; setiap kali berbincang mengenai asynchronous. Jadi, &lt;code&gt;go-loop&lt;/code&gt; tersebut samalah seperti &lt;code&gt;event loop&lt;/code&gt; untuk dispatch dari channel ke channel.&lt;/p&gt;&lt;p&gt;Maka saya pun tulis semula code tersebut menggunakan &lt;code&gt;go-loop&lt;/code&gt; dan &lt;code&gt;mult&lt;/code&gt;. Hasilnya,&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;def register-response-chan &amp;#40;chan&amp;#41;&amp;#41;
+
+
+&amp;#40;def validate-chan &amp;#40;chan 1 &amp;#40;map v/validate-registration&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;def valid-form-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def valid-form-mult &amp;#40;mult valid-form-chan&amp;#41;&amp;#41;
+
+&amp;#40;go-loop &amp;#91;&amp;#93;
+  &amp;#40;let &amp;#91;&amp;#91;errors form&amp;#93; &amp;#40;&amp;lt;! validate-chan&amp;#41;&amp;#93;
+    &amp;#40;if errors
+      &amp;#40;&amp;gt;! register-response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                     &amp;#40;flash {:errors errors :data form}&amp;#41;&amp;#41;&amp;#41;
+      &amp;#40;&amp;gt;! valid-form-chan form&amp;#41;&amp;#41;
+    &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;
+
+
+&amp;#40;def username-existed-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def email-existed-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def user-existed-chan &amp;#40;chan&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan 1&amp;#41;&amp;#93;
+  &amp;#40;tap valid-form-mult c&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;user &amp;#40;&amp;lt;!! c&amp;#41;&amp;#93;
+        &amp;#40;&amp;gt;!! username-existed-chan
+             &amp;#40;boolean &amp;#40;users/find-user-by-username db-spec user&amp;#41;&amp;#41;&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap valid-form-mult c&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;user &amp;#40;&amp;lt;!! c&amp;#41;&amp;#93;
+        &amp;#40;&amp;gt;!! email-existed-chan
+             &amp;#40;boolean &amp;#40;users/find-user-by-email db-spec user&amp;#41;&amp;#41;&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;go-loop &amp;#91;&amp;#93;
+  &amp;#40;let &amp;#91;username-existed &amp;#40;&amp;lt;! username-existed-chan&amp;#41;
+        email-existed &amp;#40;&amp;lt;! email-existed-chan&amp;#41;&amp;#93;
+    &amp;#40;&amp;gt;! user-existed-chan &amp;#40;or username-existed email-existed&amp;#41;&amp;#41;
+    &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;
+
+
+&amp;#40;def register-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def register-mult &amp;#40;mult register-chan&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap valid-form-mult c&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;user-existed &amp;#40;&amp;lt;! user-existed-chan&amp;#41;&amp;#93;
+      &amp;#40;if user-existed
+        &amp;#40;&amp;gt;! register-response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                       &amp;#40;flash {:message user-existed-msg}&amp;#41;&amp;#41;&amp;#41;
+        &amp;#40;&amp;gt;! register-chan &amp;#40;&amp;lt;! c&amp;#41;&amp;#41;&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+
+&amp;#40;def hashed-password-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def email-verification-token-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def prepared-user-chan &amp;#40;chan&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap register-mult c&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;{:keys &amp;#91;password&amp;#93;} &amp;#40;&amp;lt;!! c&amp;#41;&amp;#93;
+        &amp;#40;&amp;gt;!! hashed-password-chan &amp;#40;hashers/derive password&amp;#41;&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap register-mult c&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;&amp;lt;! c&amp;#41;
+    &amp;#40;&amp;gt;! email-verification-token-chan &amp;#40;-&amp;gt; &amp;#40;nonce/random-bytes 16&amp;#41;
+                                          &amp;#40;codecs/bytes-&amp;gt;hex&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap register-mult c&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;user &amp;#40;&amp;lt;! c&amp;#41;
+          password &amp;#40;&amp;lt;! hashed-password-chan&amp;#41;
+          token &amp;#40;&amp;lt;! email-verification-token-chan&amp;#41;&amp;#93;
+      &amp;#40;&amp;gt;! prepared-user-chan &amp;#40;assoc user :password password :token token&amp;#41;&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+
+&amp;#40;def persisted-user-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def persisted-user-mult &amp;#40;mult persisted-user-chan&amp;#41;&amp;#41;
+
+&amp;#40;async/thread
+  &amp;#40;loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;user &amp;#40;&amp;lt;!! prepared-user-chan&amp;#41;
+          row-count &amp;#40;users/register-user db-spec user&amp;#41;&amp;#93;
+      &amp;#40;if &amp;#40;zero? row-count&amp;#41;
+        &amp;#40;&amp;gt;!! register-response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                        &amp;#40;flash {:message failed-msg}&amp;#41;&amp;#41;&amp;#41;
+        &amp;#40;&amp;gt;!! persisted-user-chan user&amp;#41;&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap persisted-user-mult c&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;user &amp;#40;&amp;lt;!! c&amp;#41;&amp;#93;
+        &amp;#40;mailer/send-email-verification user&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;c &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;tap persisted-user-mult c&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;&amp;lt;! c&amp;#41;
+    &amp;#40;&amp;gt;! register-response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+                                   &amp;#40;flash success-msg&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn register &amp;#91;{:keys &amp;#91;params&amp;#93;} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;form &amp;#40;select-keys params &amp;#91;:username :email :password&amp;#93;&amp;#41;&amp;#93;
+    &amp;#40;put! validate-chan form&amp;#41;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;res &amp;#95;&amp;#93; &amp;#40;alts! &amp;#91;register-response-chan &amp;#40;timeout 10000&amp;#41;&amp;#93;&amp;#41;&amp;#93;
+          &amp;#40;respond res&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Tengok function untuk handler yang bawah sekali boleh nampak dia takde create channel atau thread yang baru, tugas dia hanya masukkan data ke channel yang mula-mula iaitu &lt;code&gt;validate-chan&lt;/code&gt; kemudian tunggu response dari &lt;code&gt;register-response-chan&lt;/code&gt;.&lt;/p&gt;&lt;p&gt;Kalau sesiapa yang mula dengar pasal &lt;code&gt;go loop&lt;/code&gt; mungkin akan ingat, &quot;Eh, takpe ke buat banyak-banyak loop? Tak makan CPU ke nanti?&quot;. Jawapannya, sebab block go ialah sebuah macro. Apabila kita buat panggilan &lt;code&gt;&amp;gt;!&lt;/code&gt; atau &lt;code&gt;&amp;lt;!&lt;/code&gt; dia bukannya block, tetapi parking. Kalau tengok code untuk macro go, di dalamnya ada macam state machine. Senang cerita jangan risau pasal performance.&lt;/p&gt;&lt;p&gt;Jadi, tengok balik code yang baru di atas, kalau sekali pandang macam nak muntah. Berterabur saya letak channel. Waktu saya menulis code tersebut, saya rasa macam saya sedang menulis code pub/sub atau reactive programming. Saya pun google 'core.async pub/sub'. Lahaii, memang ada. &lt;a href='https://github.com/clojure/core.async/wiki/Pub-Sub'&gt;Pub/sub&lt;/a&gt; merupakan cara yang lebih high level untuk menggantikan penggunaan &lt;code&gt;mult&lt;/code&gt;.&lt;/p&gt;&lt;p&gt;Selepas refactor, code jadi begini:&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;def pub-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;def publication &amp;#40;pub pub-chan :msg-type&amp;#41;&amp;#41;
+
+&amp;#40;def response-chan &amp;#40;chan&amp;#41;&amp;#41;
+&amp;#40;sub publication :response response-chan&amp;#41;
+
+&amp;#40;let &amp;#91;raw-input-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :raw-input raw-input-chan&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;{:keys &amp;#91;form&amp;#93;} &amp;#40;&amp;lt;! raw-input-chan&amp;#41;
+          &amp;#91;errors valid-form&amp;#93; &amp;#40;v/validate-registration form&amp;#41;&amp;#93;
+      &amp;#40;if errors
+        &amp;#40;&amp;gt;! pub-chan {:msg-type :response
+                      :response &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                    &amp;#40;flash {:errors errors :data form}&amp;#41;&amp;#41;}&amp;#41;
+        &amp;#40;&amp;gt;! pub-chan {:msg-type :valid-form :form valid-form}&amp;#41;&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;valid-form-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :valid-form valid-form-chan&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;{:keys &amp;#91;form&amp;#93;} &amp;#40;&amp;lt;!! valid-form-chan&amp;#41;
+            existing-username &amp;#40;users/find-user-by-username db-spec form&amp;#41;&amp;#93;
+        &amp;#40;&amp;gt;!! pub-chan
+             {:msg-type :existing-username :existing-username existing-username}&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;valid-form-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :valid-form valid-form-chan&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;{:keys &amp;#91;form&amp;#93;} &amp;#40;&amp;lt;!! valid-form-chan&amp;#41;
+            existing-email &amp;#40;users/find-user-by-email db-spec form&amp;#41;&amp;#93;
+        &amp;#40;&amp;gt;!! pub-chan {:msg-type :existing-email :existing-email existing-email}&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;existing-username-chan &amp;#40;chan&amp;#41;
+      existing-email-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :existing-username existing-username-chan&amp;#41;
+  &amp;#40;sub publication :existing-email existing-email-chan&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;{:keys &amp;#91;existing-username&amp;#93;} &amp;#40;&amp;lt;! existing-username-chan&amp;#41;
+          {:keys &amp;#91;existing-email&amp;#93;} &amp;#40;&amp;lt;! existing-email-chan&amp;#41;
+          user-existed &amp;#40;boolean &amp;#40;or existing-username existing-email&amp;#41;&amp;#41;&amp;#93;
+      &amp;#40;&amp;gt;! pub-chan {:msg-type :whether-user-existed :user-existed user-existed}&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;whether-user-existed-chan &amp;#40;chan&amp;#41;
+      valid-form-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :whether-user-existed whether-user-existed-chan&amp;#41;
+  &amp;#40;sub publication :valid-form valid-form-chan&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;{:keys &amp;#91;user-existed&amp;#93;} &amp;#40;&amp;lt;! whether-user-existed-chan&amp;#41;
+          {:keys &amp;#91;form&amp;#93;} &amp;#40;&amp;lt;! valid-form-chan&amp;#41;&amp;#93;
+      &amp;#40;if user-existed
+        &amp;#40;&amp;gt;! pub-chan {:msg-type :response
+                      :response &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                    &amp;#40;flash {:message user-existed-msg}&amp;#41;&amp;#41;}&amp;#41;
+        &amp;#40;&amp;gt;! pub-chan {:msg-type :new-user :user form}&amp;#41;&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;new-user-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :new-user new-user-chan&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;{:keys &amp;#91;password&amp;#93;} &amp;#40;:user &amp;#40;&amp;lt;!! new-user-chan&amp;#41;&amp;#41;
+            hashed-password &amp;#40;hashers/derive password&amp;#41;&amp;#93;
+        &amp;#40;&amp;gt;!! pub-chan {:msg-type :hashed-password :password hashed-password}&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;new-user-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :new-user new-user-chan&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;&amp;lt;! new-user-chan&amp;#41;
+    &amp;#40;let &amp;#91;token &amp;#40;codecs/bytes-&amp;gt;hex &amp;#40;nonce/random-bytes 16&amp;#41;&amp;#41;&amp;#93;
+      &amp;#40;&amp;gt;! pub-chan {:msg-type :email-verification-token :token token}&amp;#41;&amp;#41;
+    &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;hashed-password-chan &amp;#40;chan&amp;#41;
+      email-verification-token-chan &amp;#40;chan&amp;#41;
+      new-user-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :hashed-password hashed-password-chan&amp;#41;
+  &amp;#40;sub publication :email-verification-token email-verification-token-chan&amp;#41;
+  &amp;#40;sub publication :new-user new-user-chan&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;let &amp;#91;{:keys &amp;#91;user&amp;#93;} &amp;#40;&amp;lt;! new-user-chan&amp;#41;
+          {:keys &amp;#91;password&amp;#93;} &amp;#40;&amp;lt;! hashed-password-chan&amp;#41;
+          {:keys &amp;#91;token&amp;#93;} &amp;#40;&amp;lt;! email-verification-token-chan&amp;#41;
+          prepared-user &amp;#40;assoc user :password password :token token&amp;#41;&amp;#93;
+      &amp;#40;&amp;gt;! pub-chan {:msg-type :prepared-user :user prepared-user}&amp;#41;
+      &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;prepared-user-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :prepared-user prepared-user-chan&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;{:keys &amp;#91;user&amp;#93;} &amp;#40;&amp;lt;!! prepared-user-chan&amp;#41;
+            row-count &amp;#40;users/register-user db-spec user&amp;#41;&amp;#93;
+        &amp;#40;if &amp;#40;zero? row-count&amp;#41;
+          &amp;#40;&amp;gt;!! pub-chan {:msg-type :response
+                         :response &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                       &amp;#40;flash {:message failed-msg}&amp;#41;&amp;#41;}&amp;#41;
+          &amp;#40;&amp;gt;!! pub-chan {:msg-type :persisted-user :user user}&amp;#41;&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;persisted-user-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :persisted-user persisted-user-chan&amp;#41;
+  &amp;#40;async/thread
+    &amp;#40;loop &amp;#91;&amp;#93;
+      &amp;#40;let &amp;#91;{:keys &amp;#91;user&amp;#93;} &amp;#40;&amp;lt;!! persisted-user-chan&amp;#41;&amp;#93;
+        &amp;#40;mailer/send-email-verification user&amp;#41;
+        &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;let &amp;#91;persisted-user-chan &amp;#40;chan&amp;#41;&amp;#93;
+  &amp;#40;sub publication :persisted-user persisted-user-chan&amp;#41;
+  &amp;#40;go-loop &amp;#91;&amp;#93;
+    &amp;#40;&amp;lt;! persisted-user-chan&amp;#41;
+    &amp;#40;&amp;gt;! pub-chan {:msg-type :response
+                  :response &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+                                &amp;#40;flash success-msg&amp;#41;&amp;#41;}&amp;#41;
+    &amp;#40;recur&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn register &amp;#91;{:keys &amp;#91;params&amp;#93;} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;form &amp;#40;select-keys params &amp;#91;:username :email :password&amp;#93;&amp;#41;&amp;#93;
+    &amp;#40;go &amp;#40;let &amp;#91;&amp;#91;res &amp;#95;&amp;#93; &amp;#40;alts! &amp;#91;response-chan &amp;#40;timeout 10000&amp;#41;&amp;#93;&amp;#41;&amp;#93;
+          &amp;#40;respond &amp;#40;:response res&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#40;put! pub-chan {:msg-type :raw-input :form form}&amp;#41;&amp;#41;&amp;#41;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Akhirnya code tersebut jadi lebih kurang sama sahaja seperti penggunaan library RxJava atau pub/sub yang lain.&lt;/p&gt;&lt;p&gt;Satu trick yang saya suka buat, saya letakkan transducer untuk log data yang lalu ikut channel publisher. Dengan mudah dapat log semua event hanya dengan menukar satu line.&lt;/p&gt;
+</description>
+<pubDate>
+Wed, 23 May 2018 00:00:00 +0800
+</pubDate>
+</item>
 <item>
 <guid>
 https://www.burhanloey.com/blog/posts/2018-05-21-refactor-core-async-menggunakan-transducer/
