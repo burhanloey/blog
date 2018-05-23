@@ -2,10 +2,11 @@
  :layout :post
  :tags  ["concurrency" "clojure" "lisp"]}
 
-Post yang lepas ada kesilapan yang sangat kritikal. Cara penggunaan transducer
-dengan core.async tidak salah. Yang salahnya ialah saya create semua `chan` yang
-untuk process untuk setiap request. Maksudnya tak ada beza sama ada saya tulis
-secara synchronous ataupun asynchronous.
+Post yang [lepas](/posts/2018-05-21-refactor-core-async-menggunakan-transducer/)
+ada kesilapan yang sangat kritikal. Cara penggunaan transducer dengan core.async
+tidak salah. Yang salahnya ialah saya create semua `chan` yang untuk process
+untuk setiap request. Maksudnya tak ada beza sama ada saya tulis secara
+synchronous ataupun asynchronous.
 
 > Load testing yang menunjukkan server Java mampu untuk handle request walaupun
 > banyak silap yang saya buat menunjukkan betapa hebatnya Java Virtual Machine.

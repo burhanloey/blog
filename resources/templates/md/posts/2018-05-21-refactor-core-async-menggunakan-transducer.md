@@ -2,6 +2,8 @@
  :layout :post
  :tags  ["concurrency" "clojure" "lisp"]}
  
+> Artikel ini banyak silap, sila ke [post](/posts/2018-05-23-pembetulan-post-lepas-mengenai-core-async/) seterusnya untuk pembetulan.
+
 Dulu saya hanya menulis code Clojure secara *synchronous*, dan hanya pindahkan
 code ke *thread* lain bila perlu. Baru-baru ini saya jenguk-jenguk code untuk
 [Ring](https://github.com/ring-clojure/ring), dan saya mula perasan setiap *middleware* mengambil dua jenis function, satu
