@@ -12,11 +12,91 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Wed, 23 May 2018 22:39:02 +0800
+Fri, 25 May 2018 20:09:36 +0800
 </lastBuildDate>
 <generator>
 clj-rss
 </generator>
+<item>
+<guid>
+https://www.burhanloey.com/blog/posts/2018-05-25-sekali-lagi-silap-mengenai-core-async/
+</guid>
+<link>
+https://www.burhanloey.com/blog/posts/2018-05-25-sekali-lagi-silap-mengenai-core-async/
+</link>
+<title>
+Sekali lagi silap mengenai core.async
+</title>
+<description>
+&lt;p&gt;Sekali lagi saya salah mengenai core.async dalam post saya yang lepas.&lt;/p&gt;&lt;blockquote&gt;&lt;p&gt; Secara ringkasnya cara yang betul ialah yang mula-mula di mana saya  menggunakan transducer. Cara yang salah ialah yang di mana saya menggunakan  pub sub (yang saya sangkakan betul). &lt;/p&gt;&lt;/blockquote&gt;&lt;p&gt;Semalam saya tidak berpuas hati dengan code untuk pub sub, sebab perlu tulis terlalu panjang. Takkanlah perlu tulis code seperti itu walaupun untuk buat benda yang remeh. Saya pun baca-bacalah mengenai core.async, async vs. sync, dan motivasi di sebalik setiap paradigm.&lt;/p&gt;&lt;p&gt;Bila sebut tentang concurrency, masalahnya bukan mengenai bagaimana untuk menjalankan code secara parallel (serentak), tetapi mengenai bagaimana untuk menyatukan kembali data-data yang telah dihantar ke thread-thread yang berlainan.&lt;/p&gt;&lt;p&gt;Antara teknik yang selalu kita dengar apabila sebut tentang asynchronous ialah callback atau event-driven. Jadi ada paradigm seperti future/promise untuk mengelakkan callback hell. Paradigm untuk core.async adalah seperti BlockingQueue. Saya pun baca mengenai rationale di sebalik design core.async.&lt;/p&gt;&lt;p&gt;Yang saya faham, tujuan core.async adalah supaya kita boleh menulis code seperti synchronous tetapi di sebalik tabir, code akan berjalan secara asynchronous. Contohnya, apabila kita menggunakan take (&lt;code&gt;&amp;lt;!&lt;/code&gt;) dalam block go, dalam kepala kita, kita rasakan seperti itu operasi blocking, tetapi di sebalik tabir, program menulis callback untuk sambung semula proses apabila channel tersebut dah ready.&lt;/p&gt;&lt;p&gt;Untuk meyakinkan diri saya, saya tulis code yang sama untuk server Netty iaitu http-kit untuk bandingkan dengan server Jetty yang saya guna sebelum ini. Kalau load testing menunjukkan request per second untuk Netty lebih tinggi daripada Jetty bermakna saya betul, kalau sama bermakna code saya salah.&lt;/p&gt;&lt;p&gt;Hasilnya,&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;text&quot;&gt;Code transducer untuk Jetty: 3500+ req/s
+Code transducer untuk Netty: 8000+ req/s
+Code pub/sub untuk Jetty: 2000+ req/s
+Code pub/sub untuk Netty: 2000+ req/s
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Apa yang berlaku dalam code pub/sub ialah semua request perlu melalui satu channel sahaja. Saya dengan tidak sengaja telah mengubah multithreaded server menjadi single-threaded, asynchronous server. Aduh.&lt;/p&gt;&lt;p&gt;Dari segi masa response, page untuk code pub/sub load lebih laju, tetapi setiap kali saya request page, req/s jatuh ke 1500+. Untuk code transducer, masa untuk load page dalam 1-2 saat, tetapi req/s tak jatuh-jatuh.&lt;/p&gt;&lt;p&gt;Sekarang dah yakin bahawa code transducer adalah yang betul. Cuma ada sedikit kekurangan. Dalam code tersebut, saya terlupa untuk tutup channel selepas menghantar response. Selepas sedikit refactor, code jadi begini:&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;defn- validate-form &amp;#91;&amp;#91;response-chan form&amp;#93;&amp;#93;
+  &amp;#40;let &amp;#91;form-chan &amp;#40;chan&amp;#41;&amp;#93;
+    &amp;#40;go
+      &amp;#40;let &amp;#91;&amp;#91;errors &amp;#95;&amp;#93; &amp;#40;v/validate-registration form&amp;#41;
+            valid? &amp;#40;not errors&amp;#41;&amp;#93;
+        &amp;#40;if valid?
+          &amp;#40;&amp;gt;! form-chan form&amp;#41;
+          &amp;#40;do
+            &amp;#40;close! form-chan&amp;#41;
+            &amp;#40;&amp;gt;! response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                  &amp;#40;flash {:errors errors :data form}&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+    &amp;#91;response-chan form-chan&amp;#93;&amp;#41;&amp;#41;
+
+&amp;#40;defn- check-existing-user &amp;#91;&amp;#91;response-chan form-chan&amp;#93;&amp;#93;
+  &amp;#40;let &amp;#91;user-chan &amp;#40;chan&amp;#41;&amp;#93;
+    &amp;#40;go
+      &amp;#40;if-let &amp;#91;form &amp;#40;&amp;lt;! form-chan&amp;#41;&amp;#93;
+        &amp;#40;let &amp;#91;username-existed &amp;#40;thread &amp;#40;users/find-user-by-username db-spec form&amp;#41;&amp;#41;
+              email-existed &amp;#40;thread &amp;#40;users/find-user-by-email db-spec form&amp;#41;&amp;#41;
+              available? &amp;#40;not &amp;#40;or &amp;#40;&amp;lt;! username-existed&amp;#41;
+                                  &amp;#40;&amp;lt;! email-existed&amp;#41;&amp;#41;&amp;#41;&amp;#93;
+          &amp;#40;if available?
+            &amp;#40;&amp;gt;! user-chan form&amp;#41;
+            &amp;#40;do
+              &amp;#40;close! user-chan&amp;#41;
+              &amp;#40;&amp;gt;! response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                    &amp;#40;flash {:message &amp;#40;:user-existed msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+        &amp;#40;close! user-chan&amp;#41;&amp;#41;&amp;#41;
+    &amp;#91;response-chan user-chan&amp;#93;&amp;#41;&amp;#41;
+
+&amp;#40;defn- persist-user &amp;#91;&amp;#91;response-chan user-chan&amp;#93;&amp;#93;
+  &amp;#40;go
+    &amp;#40;when-let &amp;#91;user &amp;#40;&amp;lt;! user-chan&amp;#41;&amp;#93;
+      &amp;#40;let &amp;#91;email-verification-token &amp;#40;codecs/bytes-&amp;gt;hex &amp;#40;nonce/random-bytes 16&amp;#41;&amp;#41;
+            prepared-user &amp;#40;-&amp;gt; user
+                              &amp;#40;update :password hashers/derive&amp;#41;
+                              &amp;#40;assoc :token email-verification-token&amp;#41;&amp;#41;
+            success? &amp;#40;-&amp;gt;&amp;gt; &amp;#40;thread &amp;#40;users/register-user db-spec prepared-user&amp;#41;&amp;#41;
+                          &amp;lt;!
+                          pos?&amp;#41;&amp;#93;
+        &amp;#40;if success?
+          &amp;#40;do
+            &amp;#40;future &amp;#40;mailer/send-email-verification user&amp;#41;&amp;#41;
+            &amp;#40;&amp;gt;! response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+                                  &amp;#40;flash {:message &amp;#40;:success msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+          &amp;#40;&amp;gt;! response-chan &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                                &amp;#40;flash {:message &amp;#40;:failed msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn register-handler &amp;#91;{:keys &amp;#91;params&amp;#93; :as req} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;response-chan &amp;#40;chan&amp;#41;
+        form &amp;#40;select-keys params &amp;#91;:username :email :password&amp;#93;&amp;#41;&amp;#93;
+    &amp;#40;go
+      &amp;#40;-&amp;gt;&amp;gt; &amp;#91;response-chan form&amp;#93;
+           validate-form
+           check-existing-user
+           persist-user&amp;#41;&amp;#41;
+    &amp;#40;go
+      &amp;#40;respond &amp;#40;&amp;lt;! response-chan&amp;#41;&amp;#41;
+      &amp;#40;close! response-chan&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Code yang terbaharu ini lain sedikit daripada yang transducer sebab dulu saya kurang faham tujuan block go. Penggunaan transducer sama sahaja dengan thread-last macro &lt;code&gt;-&amp;gt;&amp;gt;&lt;/code&gt; yang saya gunakan di sini.&lt;/p&gt;&lt;p&gt;Kalau saya tidak tutup channel, takut lama-lama server akan ada software rot.&lt;/p&gt;&lt;p&gt;Dengan code yang baru ini, server Jetty mampu capai 4200+ req/s. Mungkin sebab kurang channel ataupun sebab saya tutup channel.&lt;/p&gt;&lt;p&gt;Apa-apa pun sekarang saya sangat berpuas hati sebab boleh buat server (http-kit) sama performance dengan Play Framework, framework yang saya guna di tempat kerja yang lepas.&lt;/p&gt;
+</description>
+<pubDate>
+Fri, 25 May 2018 00:00:00 +0800
+</pubDate>
+</item>
 <item>
 <guid>
 https://www.burhanloey.com/blog/posts/2018-05-23-pembetulan-post-lepas-mengenai-core-async/
