@@ -12,11 +12,87 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Fri, 25 May 2018 20:09:36 +0800
+Sat, 26 May 2018 20:13:22 +0800
 </lastBuildDate>
 <generator>
 clj-rss
 </generator>
+<item>
+<guid>
+https://www.burhanloey.com/blog/posts/2018-05-26-penggunaan-high-level-api-core-async/
+</guid>
+<link>
+https://www.burhanloey.com/blog/posts/2018-05-26-penggunaan-high-level-api-core-async/
+</link>
+<title>
+Penggunaan high level API core.async
+</title>
+<description>
+&lt;p&gt;&lt;img src=&quot;/blog/images/bruce_core_async.png&quot; alt=&quot;Tweet dari Bruce Hauman&quot; /&gt;&lt;/p&gt;&lt;p&gt;Semalam saya nampak Bruce Hauman ada &lt;a href='https://twitter.com/bhauman/status/1000070247863365632'&gt;tweet&lt;/a&gt; mengenai core.async. Macam tau-tau je saya pun tengah mula nak guna. Saya pun tengok video yang beliau tweet, &lt;a href='https://www.youtube.com/watch?v=096pIlA3GDo'&gt;video&lt;/a&gt; dari Timothy Baldridge yang menunjukkan bagaimana cara menggunakan core.async dalam situasi sebenar. Beliau pun perasan ramai yang buat silap termasuklah saya.&lt;/p&gt;&lt;p&gt;Dalam video tersebut, Timothy Baldridge sangat menggalakkan penggunaan function &lt;code&gt;pipeline&lt;/code&gt;. Sebelum ini saya masih tak faham waktu bila yang sesuai untuk menggunakan function tersebut. Saya pun tengoklah &lt;a href='https://clojure.github.io/core.async/'&gt;documentation&lt;/a&gt; core.async.&lt;/p&gt;&lt;p&gt;Dalam documentation tersebut, ada banyak lagi function yang bunyinya lebih kurang sama macam function untuk functional programming, antaranya map, reduce, merge, dan split. Saya pun go through documentation untuk semua function tersebut perlahan-lahan.&lt;/p&gt;&lt;p&gt;Semasa membaca documentation, saya perasan ada persamaan antara function-function tersebut, iaitu ayat yang berbunyi lebih kurang seperti ini:&lt;/p&gt;&lt;blockquote&gt;&lt;p&gt; The channels will close after the source channel has closed. &lt;/p&gt;&lt;/blockquote&gt;&lt;p&gt;Maksudnya kalau kita hanya menggunakan function-function high level tersebut untuk compose, sebaik sahaja kita &lt;code&gt;close!&lt;/code&gt; channel input, automatik channel-channel lain akan ditutup.&lt;/p&gt;&lt;p&gt;Berbeza dengan yang sebelum ini di mana saya terpaksa &lt;code&gt;close!&lt;/code&gt; channel satu per satu, dan secara jujurnya saya ada terlepas pandang untuk tutup beberapa channel.&lt;/p&gt;&lt;p&gt;Jadi, selepas refactor, code saya jadi begini:&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;clojure&quot;&gt;&amp;#40;defn- check-existing-user &amp;#91;&amp;#91;&amp;#95; form&amp;#93; out-ch&amp;#93;
+  &amp;#40;-&amp;gt;&amp;gt; &amp;#91;&amp;#40;async/thread &amp;#40;users/find-user-by-username db-spec form&amp;#41;&amp;#41;
+        &amp;#40;async/thread &amp;#40;users/find-user-by-email db-spec form&amp;#41;&amp;#41;&amp;#93;
+       &amp;#40;async/merge&amp;#41;
+       &amp;#40;async/reduce #&amp;#40;boolean &amp;#40;or %1 %2&amp;#41;&amp;#41; false&amp;#41;
+       &amp;#40;async/pipeline 1 out-ch &amp;#40;map #&amp;#40;vector % form&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- generate-token &amp;#91;&amp;#93;
+  &amp;#40;codecs/bytes-&amp;gt;hex &amp;#40;nonce/random-bytes 16&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- persist-user &amp;#91;&amp;#91;&amp;#95; user&amp;#93; out-ch&amp;#93;
+  &amp;#40;let &amp;#91;prepared-user &amp;#40;-&amp;gt; user
+                          &amp;#40;update :password hashers/derive&amp;#41;
+                          &amp;#40;assoc :token &amp;#40;generate-token&amp;#41;&amp;#41;&amp;#41;&amp;#93;
+    &amp;#40;-&amp;gt;&amp;gt; &amp;#40;async/thread &amp;#40;users/register-user db-spec prepared-user&amp;#41;&amp;#41;
+         &amp;#40;async/pipeline 1 out-ch &amp;#40;map #&amp;#40;vector &amp;#40;zero? %&amp;#41; user&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+
+&amp;#40;defn- split-if-error &amp;#91;ch&amp;#93;
+  &amp;#40;async/split first ch&amp;#41;&amp;#41;
+
+&amp;#40;defn register-handler &amp;#91;{:keys &amp;#91;params&amp;#93; :as req} respond &amp;#95;&amp;#93;
+  &amp;#40;let &amp;#91;input-ch &amp;#40;chan 1 &amp;#40;map v/validate-registration&amp;#41;&amp;#41;
+        &amp;#91;invalid-ch valid-ch&amp;#93; &amp;#40;split-if-error input-ch&amp;#41;
+
+        availability-ch &amp;#40;chan&amp;#41;
+        &amp;#91;not-available-ch available-ch&amp;#93; &amp;#40;split-if-error availability-ch&amp;#41;
+
+        persisting-ch &amp;#40;chan&amp;#41;
+        &amp;#91;failed-ch success-ch&amp;#93; &amp;#40;split-if-error persisting-ch&amp;#41;&amp;#93;
+
+    &amp;#40;-&amp;gt;&amp;gt; valid-ch
+         &amp;#40;async/pipeline-async 1 availability-ch check-existing-user&amp;#41;&amp;#41;
+    &amp;#40;-&amp;gt;&amp;gt; available-ch
+         &amp;#40;async/pipeline-async 1 persisting-ch persist-user&amp;#41;&amp;#41;
+
+    &amp;#40;go
+      &amp;#40;let &amp;#91;&amp;#91;val ch&amp;#93; &amp;#40;alts! &amp;#91;invalid-ch not-available-ch failed-ch success-ch&amp;#93;&amp;#41;
+            response &amp;#40;condp = ch
+                       invalid-ch
+                       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                           &amp;#40;flash {:errors &amp;#40;first val&amp;#41; :data &amp;#40;second val&amp;#41;}&amp;#41;&amp;#41;
+
+                       not-available-ch
+                       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                           &amp;#40;flash {:message &amp;#40;:user-existed msg&amp;#41;}&amp;#41;&amp;#41;
+
+                       failed-ch
+                       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                           &amp;#40;flash {:message &amp;#40;:failed msg&amp;#41;}&amp;#41;&amp;#41;
+
+                       success-ch
+                       &amp;#40;do
+                         &amp;#40;future &amp;#40;mailer/send-email-verification &amp;#40;second val&amp;#41;&amp;#41;&amp;#41;
+                         &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+                             &amp;#40;flash {:message &amp;#40;:success msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#93;
+        &amp;#40;respond response&amp;#41;
+        &amp;#40;close! input-ch&amp;#41;&amp;#41;&amp;#41;
+
+    &amp;#40;put! input-ch params&amp;#41;&amp;#41;&amp;#41;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Jika diperhatikan, saya hanya menggunakan satu block go sahaja. Tiada langsung take (&lt;code&gt;&amp;lt;!&lt;/code&gt;) atau put (&lt;code&gt;&amp;gt;!&lt;/code&gt;). Saya juga hanya perlu &lt;code&gt;close!&lt;/code&gt; satu channel sahaja selepas selesai menghantar response. Error handling juga saya bawa sehingga ke bahagian akhir sekali, jadi tiada &lt;em&gt;side-effect&lt;/em&gt;.&lt;/p&gt;
+</description>
+<pubDate>
+Sat, 26 May 2018 00:00:00 +0800
+</pubDate>
+</item>
 <item>
 <guid>
 https://www.burhanloey.com/blog/posts/2018-05-25-sekali-lagi-silap-mengenai-core-async/
