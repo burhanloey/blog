@@ -53,7 +53,7 @@ Jadi, selepas refactor, code saya jadi begini:
                           (update :password hashers/derive)
                           (assoc :token (generate-token)))]
     (->> (async/thread (users/register-user db-spec prepared-user))
-         (async/pipeline 1 out-ch (map #(vector (zero? %) user))))))
+         (async/pipeline 1 out-ch (map #(vector (zero? %) prepared-user))))))
 
 (defn- split-if-error [ch]
   (async/split first ch))
