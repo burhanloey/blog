@@ -59,44 +59,40 @@ Jadi, selepas refactor, code saya jadi begini:
   (async/split first ch))
 
 (defn register-handler [{:keys [params] :as req} respond _]
-  (let [input-ch (chan 1 (map v/validate-registration))
-        [invalid-ch valid-ch] (split-if-error input-ch)
-
-        availability-ch (chan)
+  (let [input-ch                        (chan 1 (map v/validate-registration))
+        [invalid-ch valid-ch]           (split-if-error input-ch)
+        availability-ch                 (chan)
         [not-available-ch available-ch] (split-if-error availability-ch)
-
-        persisting-ch (chan)
-        [failed-ch success-ch] (split-if-error persisting-ch)]
-
+        persisting-ch                   (chan)
+        [failed-ch success-ch]          (split-if-error persisting-ch)]
     (->> valid-ch
          (async/pipeline-async 1 availability-ch check-existing-user))
     (->> available-ch
          (async/pipeline-async 1 persisting-ch persist-user))
 
+    (put! input-ch params)
+
     (go
-      (let [[val ch] (alts! [invalid-ch not-available-ch failed-ch success-ch])
-            response (condp = ch
-                       invalid-ch
-                       (-> (redirect "/daftar")
-                           (flash {:errors (first val) :data (second val)}))
+      (respond
+       (alt!
+         invalid-ch
+         ([result] (-> (redirect "/daftar")
+                       (flash {:errors (first result) :data (second result)})))
 
-                       not-available-ch
-                       (-> (redirect "/daftar")
-                           (flash {:message (:user-existed msg)}))
+         not-available-ch
+         ([]       (-> (redirect "/daftar")
+                       (flash {:message (:user-existed msg)})))
 
-                       failed-ch
-                       (-> (redirect "/daftar")
-                           (flash {:message (:failed msg)}))
+         failed-ch
+         ([]       (-> (redirect "/daftar")
+                       (flash {:message (:failed msg)})))
 
-                       success-ch
-                       (do
-                         (future (mailer/send-email-verification (second val)))
-                         (-> (redirect "/login")
-                             (flash {:message (:success msg)}))))]
-        (respond response)
-        (close! input-ch)))
-
-    (put! input-ch params)))
+         success-ch
+         ([result] (do
+                     (future (mailer/send-email-verification (second result)))
+                     (-> (redirect "/login")
+                         (flash {:message (:success msg)}))))))
+      (close! input-ch))))
 ```
 
 Jika diperhatikan, saya hanya menggunakan satu block go sahaja. Tiada langsung
