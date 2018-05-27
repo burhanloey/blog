@@ -81,44 +81,40 @@
   &#40;async/split first ch&#41;&#41;
 
 &#40;defn register-handler &#91;{:keys &#91;params&#93; :as req} respond &#95;&#93;
-  &#40;let &#91;input-ch &#40;chan 1 &#40;map v/validate-registration&#41;&#41;
-        &#91;invalid-ch valid-ch&#93; &#40;split-if-error input-ch&#41;
-
-        availability-ch &#40;chan&#41;
+  &#40;let &#91;input-ch                        &#40;chan 1 &#40;map v/validate-registration&#41;&#41;
+        &#91;invalid-ch valid-ch&#93;           &#40;split-if-error input-ch&#41;
+        availability-ch                 &#40;chan&#41;
         &#91;not-available-ch available-ch&#93; &#40;split-if-error availability-ch&#41;
-
-        persisting-ch &#40;chan&#41;
-        &#91;failed-ch success-ch&#93; &#40;split-if-error persisting-ch&#41;&#93;
-
+        persisting-ch                   &#40;chan&#41;
+        &#91;failed-ch success-ch&#93;          &#40;split-if-error persisting-ch&#41;&#93;
     &#40;-&gt;&gt; valid-ch
          &#40;async/pipeline-async 1 availability-ch check-existing-user&#41;&#41;
     &#40;-&gt;&gt; available-ch
          &#40;async/pipeline-async 1 persisting-ch persist-user&#41;&#41;
 
+    &#40;put! input-ch params&#41;
+
     &#40;go
-      &#40;let &#91;&#91;val ch&#93; &#40;alts! &#91;invalid-ch not-available-ch failed-ch success-ch&#93;&#41;
-            response &#40;condp = ch
-                       invalid-ch
-                       &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
-                           &#40;flash {:errors &#40;first val&#41; :data &#40;second val&#41;}&#41;&#41;
+      &#40;respond
+       &#40;alt!
+         invalid-ch
+         &#40;&#91;result&#93; &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
+                       &#40;flash {:errors &#40;first result&#41; :data &#40;second result&#41;}&#41;&#41;&#41;
 
-                       not-available-ch
-                       &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
-                           &#40;flash {:message &#40;:user-existed msg&#41;}&#41;&#41;
+         not-available-ch
+         &#40;&#91;&#93;       &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
+                       &#40;flash {:message &#40;:user-existed msg&#41;}&#41;&#41;&#41;
 
-                       failed-ch
-                       &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
-                           &#40;flash {:message &#40;:failed msg&#41;}&#41;&#41;
+         failed-ch
+         &#40;&#91;&#93;       &#40;-&gt; &#40;redirect &quot;/daftar&quot;&#41;
+                       &#40;flash {:message &#40;:failed msg&#41;}&#41;&#41;&#41;
 
-                       success-ch
-                       &#40;do
-                         &#40;future &#40;mailer/send-email-verification &#40;second val&#41;&#41;&#41;
-                         &#40;-&gt; &#40;redirect &quot;/login&quot;&#41;
-                             &#40;flash {:message &#40;:success msg&#41;}&#41;&#41;&#41;&#41;&#93;
-        &#40;respond response&#41;
-        &#40;close! input-ch&#41;&#41;&#41;
-
-    &#40;put! input-ch params&#41;&#41;&#41;
+         success-ch
+         &#40;&#91;result&#93; &#40;do
+                     &#40;future &#40;mailer/send-email-verification &#40;second result&#41;&#41;&#41;
+                     &#40;-&gt; &#40;redirect &quot;/login&quot;&#41;
+                         &#40;flash {:message &#40;:success msg&#41;}&#41;&#41;&#41;&#41;&#41;&#41;
+      &#40;close! input-ch&#41;&#41;&#41;&#41;
 </code></pre><p>Jika diperhatikan, saya hanya menggunakan satu block go sahaja. Tiada langsung take (<code>&lt;!</code>) atau put (<code>&gt;!</code>). Saya juga hanya perlu <code>close!</code> satu channel sahaja selepas selesai menghantar response. Error handling juga saya bawa sehingga ke bahagian akhir sekali, jadi tiada <em>side-effect</em>.</p>
 </div>
 

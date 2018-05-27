@@ -12,7 +12,7 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Sat, 26 May 2018 20:13:22 +0800
+Sun, 27 May 2018 19:05:54 +0800
 </lastBuildDate>
 <generator>
 clj-rss
@@ -49,44 +49,40 @@ Penggunaan high level API core.async
   &amp;#40;async/split first ch&amp;#41;&amp;#41;
 
 &amp;#40;defn register-handler &amp;#91;{:keys &amp;#91;params&amp;#93; :as req} respond &amp;#95;&amp;#93;
-  &amp;#40;let &amp;#91;input-ch &amp;#40;chan 1 &amp;#40;map v/validate-registration&amp;#41;&amp;#41;
-        &amp;#91;invalid-ch valid-ch&amp;#93; &amp;#40;split-if-error input-ch&amp;#41;
-
-        availability-ch &amp;#40;chan&amp;#41;
+  &amp;#40;let &amp;#91;input-ch                        &amp;#40;chan 1 &amp;#40;map v/validate-registration&amp;#41;&amp;#41;
+        &amp;#91;invalid-ch valid-ch&amp;#93;           &amp;#40;split-if-error input-ch&amp;#41;
+        availability-ch                 &amp;#40;chan&amp;#41;
         &amp;#91;not-available-ch available-ch&amp;#93; &amp;#40;split-if-error availability-ch&amp;#41;
-
-        persisting-ch &amp;#40;chan&amp;#41;
-        &amp;#91;failed-ch success-ch&amp;#93; &amp;#40;split-if-error persisting-ch&amp;#41;&amp;#93;
-
+        persisting-ch                   &amp;#40;chan&amp;#41;
+        &amp;#91;failed-ch success-ch&amp;#93;          &amp;#40;split-if-error persisting-ch&amp;#41;&amp;#93;
     &amp;#40;-&amp;gt;&amp;gt; valid-ch
          &amp;#40;async/pipeline-async 1 availability-ch check-existing-user&amp;#41;&amp;#41;
     &amp;#40;-&amp;gt;&amp;gt; available-ch
          &amp;#40;async/pipeline-async 1 persisting-ch persist-user&amp;#41;&amp;#41;
 
+    &amp;#40;put! input-ch params&amp;#41;
+
     &amp;#40;go
-      &amp;#40;let &amp;#91;&amp;#91;val ch&amp;#93; &amp;#40;alts! &amp;#91;invalid-ch not-available-ch failed-ch success-ch&amp;#93;&amp;#41;
-            response &amp;#40;condp = ch
-                       invalid-ch
-                       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
-                           &amp;#40;flash {:errors &amp;#40;first val&amp;#41; :data &amp;#40;second val&amp;#41;}&amp;#41;&amp;#41;
+      &amp;#40;respond
+       &amp;#40;alt!
+         invalid-ch
+         &amp;#40;&amp;#91;result&amp;#93; &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                       &amp;#40;flash {:errors &amp;#40;first result&amp;#41; :data &amp;#40;second result&amp;#41;}&amp;#41;&amp;#41;&amp;#41;
 
-                       not-available-ch
-                       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
-                           &amp;#40;flash {:message &amp;#40;:user-existed msg&amp;#41;}&amp;#41;&amp;#41;
+         not-available-ch
+         &amp;#40;&amp;#91;&amp;#93;       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                       &amp;#40;flash {:message &amp;#40;:user-existed msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;
 
-                       failed-ch
-                       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
-                           &amp;#40;flash {:message &amp;#40;:failed msg&amp;#41;}&amp;#41;&amp;#41;
+         failed-ch
+         &amp;#40;&amp;#91;&amp;#93;       &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/daftar&amp;quot;&amp;#41;
+                       &amp;#40;flash {:message &amp;#40;:failed msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;
 
-                       success-ch
-                       &amp;#40;do
-                         &amp;#40;future &amp;#40;mailer/send-email-verification &amp;#40;second val&amp;#41;&amp;#41;&amp;#41;
-                         &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
-                             &amp;#40;flash {:message &amp;#40;:success msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#93;
-        &amp;#40;respond response&amp;#41;
-        &amp;#40;close! input-ch&amp;#41;&amp;#41;&amp;#41;
-
-    &amp;#40;put! input-ch params&amp;#41;&amp;#41;&amp;#41;
+         success-ch
+         &amp;#40;&amp;#91;result&amp;#93; &amp;#40;do
+                     &amp;#40;future &amp;#40;mailer/send-email-verification &amp;#40;second result&amp;#41;&amp;#41;&amp;#41;
+                     &amp;#40;-&amp;gt; &amp;#40;redirect &amp;quot;/login&amp;quot;&amp;#41;
+                         &amp;#40;flash {:message &amp;#40;:success msg&amp;#41;}&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+      &amp;#40;close! input-ch&amp;#41;&amp;#41;&amp;#41;&amp;#41;
 &lt;/code&gt;&lt;/pre&gt;&lt;p&gt;Jika diperhatikan, saya hanya menggunakan satu block go sahaja. Tiada langsung take (&lt;code&gt;&amp;lt;!&lt;/code&gt;) atau put (&lt;code&gt;&amp;gt;!&lt;/code&gt;). Saya juga hanya perlu &lt;code&gt;close!&lt;/code&gt; satu channel sahaja selepas selesai menghantar response. Error handling juga saya bawa sehingga ke bahagian akhir sekali, jadi tiada &lt;em&gt;side-effect&lt;/em&gt;.&lt;/p&gt;
 </description>
 <pubDate>
