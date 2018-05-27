@@ -12,7 +12,7 @@ https://www.burhanloey.com/
 burhanloey's blog
 </description>
 <lastBuildDate>
-Sun, 27 May 2018 19:05:54 +0800
+Sun, 27 May 2018 19:09:02 +0800
 </lastBuildDate>
 <generator>
 clj-rss
@@ -43,7 +43,7 @@ Penggunaan high level API core.async
                           &amp;#40;update :password hashers/derive&amp;#41;
                           &amp;#40;assoc :token &amp;#40;generate-token&amp;#41;&amp;#41;&amp;#41;&amp;#93;
     &amp;#40;-&amp;gt;&amp;gt; &amp;#40;async/thread &amp;#40;users/register-user db-spec prepared-user&amp;#41;&amp;#41;
-         &amp;#40;async/pipeline 1 out-ch &amp;#40;map #&amp;#40;vector &amp;#40;zero? %&amp;#41; user&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
+         &amp;#40;async/pipeline 1 out-ch &amp;#40;map #&amp;#40;vector &amp;#40;zero? %&amp;#41; prepared-user&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;&amp;#41;
 
 &amp;#40;defn- split-if-error &amp;#91;ch&amp;#93;
   &amp;#40;async/split first ch&amp;#41;&amp;#41;

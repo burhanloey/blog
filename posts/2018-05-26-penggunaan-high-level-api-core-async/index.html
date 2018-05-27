@@ -75,7 +75,7 @@
                           &#40;update :password hashers/derive&#41;
                           &#40;assoc :token &#40;generate-token&#41;&#41;&#41;&#93;
     &#40;-&gt;&gt; &#40;async/thread &#40;users/register-user db-spec prepared-user&#41;&#41;
-         &#40;async/pipeline 1 out-ch &#40;map #&#40;vector &#40;zero? %&#41; user&#41;&#41;&#41;&#41;&#41;&#41;
+         &#40;async/pipeline 1 out-ch &#40;map #&#40;vector &#40;zero? %&#41; prepared-user&#41;&#41;&#41;&#41;&#41;&#41;
 
 &#40;defn- split-if-error &#91;ch&#93;
   &#40;async/split first ch&#41;&#41;
